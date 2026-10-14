@@ -64,10 +64,18 @@ custom lifetime. It propagates the child command's exit status.
 
 `MOBILE_DEVICE` can appear as a whole argument or a placeholder in a value such
 as `target=MOBILE_DEVICE`. Variable names such as `MOBILE_DEVICE_LEASE_DIR` are
-left intact. Do not supply a conflicting literal `adb -s` or simulator UDID.
+left intact. Direct wrapped `adb` rejects a conflicting `-s`, alternate global
+selectors (`-d`, `-e`, `-t`) and server/global operations. A matching `-s` is
+accepted. Command-specific flags after the adb verb, such as `install -t`, are
+preserved. Direct `simctl` / `xcrun simctl` requires the captured UDID for device
+commands and refuses `all`, `booted`, conflicting devices and unrecognised global
+operations. Read-only `list` and `help` are allowed. Launch/spawn options are
+validated before the device operand; unsupported options fail closed. Arbitrary
+scripts or shells must honour the pin internally; the wrapper cannot inspect
+their SDK calls. [ADB's selector rules](https://android.googlesource.com/platform/packages/modules/adb/+/HEAD/docs/user/adb.1.md).
 
 If a heartbeat confirms lost ownership, the command's result is rejected after
-the child finishes. Version 0.1.0 does not immediately cancel that child.
+the child finishes. The wrapper does not immediately cancel that child.
 Do not release or force-transfer a device while a command still uses it.
 
 ## Run an automatic device session
@@ -112,6 +120,30 @@ keyboard. Existing AVDs are not recreated or reconfigured.
 SDK discovery uses `ANDROID_SDK_ROOT`, then `ANDROID_HOME`, then the macOS SDK
 location. Set an SDK variable on other hosts. Put `adb` on PATH. SDK image and
 profile availability are local prerequisites, not downloaded dependencies.
+
+## Diagnose prerequisites and capacity
+
+```sh
+device-lease doctor --platform android
+device-lease doctor --platform ios --ios-family all
+device-lease doctor --platform android --json
+```
+
+The doctor reports the registry, owner, SDK executable discovery and visible
+capacity. Android checks `adb` on PATH and `emulator` / `avdmanager` in the
+configured SDK root or PATH. iOS queries available simulators with
+`xcrun simctl`. It reads lease metadata without renewing, acquiring or releasing,
+and never boots devices, creates AVDs, changes SDKs or creates the registry.
+An Android inventory query can start the usual ADB server. Executable discovery
+does not prove Java/profile/system-image readiness; stopped devices are not
+boot-tested. Capacity is an observational snapshot, not a reservation, and
+Android AVD/ready-emulator counts can overlap.
+
+The Android check covers allocation and pool provisioning; an existing pool can
+still be leased without `avdmanager`. Missing prerequisites or no visible
+capacity return nonzero. Held capacity is
+reported separately; waiting for a lease is normal. The provisioner names a
+missing `avdmanager` executable rather than suggesting a device-profile error.
 
 ## Recover the owned virtual device
 
@@ -167,7 +199,8 @@ an application adapter must map its inputs to the neutral variables explicitly.
 
 Acquisition exports `MOBILE_DEVICE_ID`, `MOBILE_DEVICE_NAME`,
 `MOBILE_DEVICE_PLATFORM` and `MOBILE_DEVICE_TOKEN`; Android also exports
-`ANDROID_SERIAL` / `ADB_DEVICE_SERIAL`, and iOS exports `IOS_SIMULATOR`.
+`ANDROID_SERIAL` / `ADB_DEVICE_SERIAL`, and iOS exports `IOS_SIMULATOR`. Wrapped children also receive the captured
+`MOBILE_DEVICE_OWNER`, so nested adapters retain explicit owner overrides.
 `MOBILE_DEVICE_FAKE_CAPACITY` and `MOBILE_DEVICE_TEST_*` are test seams; do not
 configure them in real agent sessions.
 

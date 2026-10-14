@@ -17,10 +17,13 @@ device targeting and renewal. Build commands and application identifiers are
 project-specific adapters.
 
 The package supplies the lease manager, execution and session wrappers, Android
-pool provisioner and build-slot wrapper. Install it in the receiving project
-and use its command-line tools. Application build and preview launchers remain
+pool provisioner and build-slot wrapper. Install it once for personal use or
+pin it in the receiving project for team use, then use its command-line tools. Application build and preview launchers remain
 project-specific integrations; the `dev:*:local` examples below illustrate those
 launchers and are not provided by this package.
+
+Choose [personal or project/team adoption](adoption.md) before integrating.
+Installation alone does not make agents participate.
 
 **Scope:** this is a cooperative protocol on one development machine. It does
 not make the emulator reject commands from an unrelated process. Every agent,

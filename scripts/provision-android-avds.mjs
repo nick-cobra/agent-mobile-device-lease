@@ -6,6 +6,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { makeArgReader } from "./lib/args.mjs";
+import { androidTool } from "./lib/sdk-tools.mjs";
 import {
   DEFAULT_AVD_POOL_SIZE,
   PINNED_SYSTEM_IMAGE_PACKAGE,
@@ -44,7 +45,7 @@ function bin(relative, fallback) {
 const avdHome = resolveAvdHome(process.env, homedir());
 
 const emulatorBin = bin("emulator/emulator", "emulator");
-const avdManagerBin = bin("cmdline-tools/latest/bin/avdmanager", "avdmanager");
+const avdManagerBin = androidTool("avdmanager");
 
 function output(command, args) {
   const result = spawnSync(command, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -136,6 +137,9 @@ if (missing.length === 0) {
 }
 
 for (const name of missing) {
+  if (!avdManagerBin) {
+    fail(`Missing executable avdmanager. Install Android SDK Command-line Tools (latest), or add avdmanager to PATH. Checked ${join(sdkRoot, "cmdline-tools/latest/bin/avdmanager")} and PATH.`);
+  }
   console.log(`Creating ${name}…`);
   const result = spawnSync(
     avdManagerBin,
@@ -144,6 +148,7 @@ for (const name of missing) {
   );
 
   if (result.status !== 0) {
+    if (result.error) fail(`Could not run avdmanager (${avdManagerBin}): ${result.error.message}`);
     fail(
       `Failed to create ${name}. If the device profile is unknown, pass ` +
         `--device-profile <id> (see \`${avdManagerBin} list device\`).`,
@@ -155,7 +160,7 @@ for (const name of missing) {
 
 console.log(
   `\nCreated ${missing.length} AVD(s). Agents now acquire one with:\n` +
-    `  eval "$(node scripts/device-lease.mjs acquire --platform android)"`,
+    `  device-lease acquire --platform android`,
 );
 function enableHardwareKeyboard(name) {
   const pointer = readIfPresent(join(avdHome, `${name}.ini`));

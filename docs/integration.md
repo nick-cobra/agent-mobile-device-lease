@@ -1,8 +1,13 @@
 # Integrating into an application
 
-## Install instead of copying
+Start with [Adoption](adoption.md): choose personal installation for your own
+agents or committed integration for a project/team. Both paths use the same
+registry for overlapping devices. Installation alone does not enlist agents or
+fix an existing launcher's device selection.
 
-Add the pinned GitHub release as a development dependency and commit the
+## Project installation instead of copying
+
+For a project/team adoption, add the pinned GitHub release as a development dependency and commit the
 application's dependency lockfile. The application keeps its build and test
 commands; the package provides allocation, device execution and cleanup.
 
@@ -25,6 +30,9 @@ application's manifest with this package's manifest.
 Copying the package's `scripts/` directory is also supported. If copying, use
 `node scripts/device-lease.mjs` and the other entry files rather than installed
 bin names. Include all `scripts/lib/` helpers.
+
+For personal adoption, install the global CLI and keep the application manifest
+unchanged. Use direct bin names in the examples below instead of `pnpm exec`.
 
 ## Give every consumer the same identity
 
@@ -108,3 +116,43 @@ local backend. Confirm that the displayed build belongs to the tested worktree.
 Record the tested platform, environment and limitations before recommending the
 tool to other projects. This package does not configure the application's backend,
 signing credentials, login fixtures or framework-specific build paths.
+
+## Personal migration of a first-device installer
+
+An existing installer may run `adb devices`, choose the first row, then call
+`adb -s <first> install`. Wrapping that installer does not fix its explicit
+selector. Replace that device-selection path with the captured lease, or use
+a personal adapter that performs its device phases outside the repository.
+Do not run the original unsafe installer inside the wrapper.
+
+The copyable [Android personal task](../examples/android-personal-task.mjs)
+uses the captured owner, device and token for both APK installations, a real
+instrumentation test invocation and a screenshot. Copy it to a personal
+location such as `~/.local/share/mobile-device-lease/android-personal-task.mjs`.
+Build the APKs with the application's normal commands, then from its worktree:
+
+```sh
+device-session --platform android -- node \
+  "$HOME/.local/share/mobile-device-lease/android-personal-task.mjs" \
+  ./build/app.apk ./build/app-test.apk \
+  com.example.app.test/androidx.test.runner.AndroidJUnitRunner ./shot.png
+```
+
+Replace the paths and test package/runner with the application's real outputs.
+The adapter does not search for or select an emulator. Each operation runs
+through `device-lease exec --owner <captured-owner> --token <captured-token>`
+and passes `adb -s <captured-device>`. A stale token fails before the next
+operation. Instrumentation must report `OK (...)`; an SDK process exiting zero
+alone is not test success. A failed test prevents the screenshot and the outer
+session cleans up its captured generation. The screenshot shows the state left
+by the tests; add an explicitly pinned app launch if a particular screen is
+required. Provide real application tests rather than interpreting boot readiness
+as application verification.
+
+For an already-held lease, invoke the adapter with `device-lease exec` instead
+of `device-session`. That leaves the task's lease in place for later calls.
+If adapting the original installer directly is preferable, pass the captured
+serial into all of its device phases and remove any first-device discovery.
+It must return only after testing and capture finish. Apply the same pattern
+on iOS using the captured UDID in each `simctl` operation. The wrapper validates
+direct SDK calls; it cannot discover hidden targeting decisions inside scripts.
