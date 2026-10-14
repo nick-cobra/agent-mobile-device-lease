@@ -40,7 +40,8 @@ behaviour. [Official Codex instruction discovery](https://learn.chatgpt.com/docs
 Each participant needs access to the installed dependency. A project's pinned
 version makes updates reviewable; the lockfile is part of the adoption.
 [Integration examples](integration.md) explain launcher and legacy-manager
-migration. Copying the scripts is optional, not an installation requirement.
+migration. Keep the lease engines in the installed dependency; application
+repositories own their integration code and configuration.
 
 ## Shared devices require one registry
 

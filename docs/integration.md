@@ -5,7 +5,7 @@ agents or committed integration for a project/team. Both paths use the same
 registry for overlapping devices. Installation alone does not enlist agents or
 fix an existing launcher's device selection.
 
-## Project installation instead of copying
+## Project installation
 
 For a project/team adoption, add the pinned GitHub release as a development dependency and commit the
 application's dependency lockfile. The application keeps its build and test
@@ -27,9 +27,9 @@ Optional aliases in the application's existing `package.json` are:
 Merge these entries into the existing scripts object. Do not replace the
 application's manifest with this package's manifest.
 
-Copying the package's `scripts/` directory is also supported. If copying, use
-`node scripts/device-lease.mjs` and the other entry files rather than installed
-bin names. Include all `scripts/lib/` helpers.
+Use the installed bin names. Keep the lease, renewal, recovery and build-slot
+engines in this dependency so library fixes arrive through a version update.
+The application owns its launcher adapters and configuration.
 
 For personal adoption, install the global CLI and keep the application manifest
 unchanged. Use direct bin names in the examples below instead of `pnpm exec`.

@@ -18,7 +18,7 @@ project-specific adapters.
 
 The package supplies the lease manager, execution and session wrappers, Android
 pool provisioner and build-slot wrapper. Install it once for personal use or
-pin it in the receiving project for team use, then use its command-line tools. Application build and preview launchers remain
+pin it in the application for team use, then use its command-line tools. Application build and preview launchers remain
 project-specific integrations; the `dev:*:local` examples below illustrate those
 launchers and are not provided by this package.
 
@@ -34,6 +34,10 @@ registry is shared across worktrees running as the same operating-system user.
 
 Each parallel agent works in its own checkout. Run these commands from that
 checkout, after starting the local web/API server.
+
+These project examples use the optional package-script aliases shown below.
+Without aliases, use `pnpm exec device-lease`; personal installations use
+`device-lease` directly. The lease engines stay in the installed library.
 
 ### Android
 
@@ -162,8 +166,8 @@ it back before reporting success.
 The mutation mutex uses a Unix domain socket at `.lease-op.sock`. A listening
 process holds the critical section; contenders wait. When the process exits,
 its listener closes. The lease manager also handles the socket filesystem entry that can
-remain after a crash by probing it and reclaiming the abandoned entry. Preserve
-the implementation and its concurrency tests when porting this behaviour.
+remain after a crash by probing it and reclaiming the abandoned entry. The
+installed library owns this implementation and its concurrency tests.
 
 The mutex covers acquisition, renewal, release and expired-record removal.
 Expired-record removal rechecks the on-disk record before deleting it. Renewal
@@ -333,10 +337,10 @@ Separate roots are appropriate only for pools that cannot overlap. Renaming
 `shared-mobile/device-leases` to `<project>/device-leases` independently in each project
 would let both registries claim the same serial or UDID.
 
-### Separate reusable modules from application setup
+### Library and application responsibilities
 
-The package contains the following modules. Installing a release keeps these
-modules inside the dependency; copying `scripts/` is an optional migration path.
+The following source map explains the installed library. Consumers configure
+the package and integrate its commands into their application launchers.
 
 | Source | Responsibility |
 | --- | --- |
@@ -349,50 +353,40 @@ modules inside the dependency; copying `scripts/` is an optional migration path.
 | `scripts/mobile-build.mjs` | Run a project build in the shared host build slot |
 | `scripts/lib/owner.mjs` | Resolve the caller's checkout identity |
 
-The CLI and Android provisioner share a standalone argument reader in
-`scripts/lib/args.mjs`. It has no application or backend dependencies:
-
-```js
-export function makeArgReader(argv) {
-  return {
-    argValue(name, fallback) {
-      const index = argv.indexOf(name);
-      if (index === -1) return fallback;
-      return argv[index + 1] ?? fallback;
-    },
-    hasArg(name) {
-      return argv.includes(name);
-    },
-  };
-}
-```
+The CLI and Android provisioner share the library's argument reader in
+`scripts/lib/args.mjs`. It has no application or backend dependencies.
 
 The core uses Node built-ins. Device operations additionally need the Android
 SDK tools or Xcode's `xcrun simctl`. The Unix-socket mutex and host recovery
-commands need platform review before a Windows port.
+commands need platform review before Windows support can be added.
 
-If keeping the same script layout, expose these aliases in `package.json`:
+For project/team integration, optional aliases in the application's existing
+`package.json` call the installed bins:
 
 ```json
 {
   "scripts": {
-    "device:lease": "node scripts/device-lease.mjs",
-    "android:avds": "node scripts/provision-android-avds.mjs"
+    "device:lease": "device-lease",
+    "device:session": "device-session",
+    "android:avds": "android-device-pool",
+    "mobile:build": "mobile-build-slot"
   }
 }
 ```
 
-Then adapt application package IDs, SDK discovery, the AVD prefix and image,
-simulator discovery, build paths and launcher commands. Keep owner derivation,
-registry resolution and token handling consistent across every consumer.
+Configure application package IDs, SDK paths, the AVD prefix/image and simulator
+family through the supported options and environment variables. The application
+supplies build paths and launcher commands. Keep registry and captured
+owner/device/token consistent across those integrations.
 
-### Verify the port with process-level tests
+### Verify application integration
 
-Add suites such as `scripts/device-lease.test.mjs` and
-`scripts/mobile-build-lock.test.mjs`. Exercise real concurrent CLI processes
-against a temporary lease directory and fake device capacity; do not use the live pool for race tests.
+The library's process-level tests cover its claim, renewal, release and build-slot
+contracts. Application tests should call the installed CLI and exercise their
+own launcher boundaries. Use a temporary lease directory and fake device
+capacity for concurrency tests; do not use the live pool for race tests.
 
-At minimum, prove that:
+The relevant integration checks are:
 
 1. Concurrent owners receive distinct devices, and overflow waits or fails.
 2. A repeat acquisition reuses the owner's device across separate shells.
@@ -405,20 +399,21 @@ At minimum, prove that:
 9. Recovery touches only the owned virtual device and preserves application failures.
 10. A crashed build-slot holder releases its kernel-owned slot.
 
-Run all package tests with:
+For library contributions, clone this tool repository and run its own tests:
 
 ```sh
 npm test
 ```
 
-Adapt the tests' launcher fixtures and application assumptions along with the
-production adapters. Retain the race tests rather than testing only pure
-selection functions.
+Consumers do not need a tool-repository checkout. Test the application's
+installation, launch, testing and capture flow as described in
+[Integration](integration.md#prove-application-integration).
 
 ## An agent instruction block to reuse
 
-Add this to the other project's `AGENTS.md` after its scripts and launchers have
-been integrated:
+For project/team adoption, add this to the application's `AGENTS.md` after the
+installed commands and launchers have been integrated. For personal adoption,
+use the [personal rule](agent-instructions.md#personal-rule) instead:
 
 ```md
 ### Shared mobile devices
