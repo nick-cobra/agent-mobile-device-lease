@@ -1,0 +1,39 @@
+{
+  "name": "agent-mobile-device-lease",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Shared Android emulator and iOS simulator leases for agent worktrees",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "device:lease": "node scripts/device-lease.mjs",
+    "android:avds": "node scripts/provision-android-avds.mjs",
+    "mobile:build": "node scripts/mobile-build.mjs",
+    "device:session": "node scripts/device-session.mjs",
+    "test": "node --test scripts/*.test.mjs"
+  },
+  "license": "MIT",
+  "bin": {
+    "device-lease": "scripts/device-lease.mjs",
+    "device-session": "scripts/device-session.mjs",
+    "mobile-build-slot": "scripts/mobile-build.mjs",
+    "android-device-pool": "scripts/provision-android-avds.mjs"
+  },
+  "files": [
+    "scripts",
+    "docs",
+    "README.md",
+    "AGENTS.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nick-cobra/agent-mobile-device-lease.git"
+  },
+  "homepage": "https://github.com/nick-cobra/agent-mobile-device-lease#readme",
+  "bugs": {
+    "url": "https://github.com/nick-cobra/agent-mobile-device-lease/issues"
+  }
+}

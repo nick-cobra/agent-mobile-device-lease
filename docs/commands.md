@@ -1,0 +1,158 @@
+# Command reference
+
+After installation, invoke commands with `pnpm exec`, `npm exec --`, or their
+direct bin names on PATH. During development in this repository, use the package
+aliases or `node scripts/<entry>.mjs`.
+
+## Device allocation
+
+```sh
+device-lease acquire --platform android
+device-lease acquire --platform ios
+device-lease list
+device-lease renew --platform android
+device-lease release --platform android
+device-lease release
+```
+
+| Option | Effect |
+| --- | --- |
+| `--platform android\|ios` | Select the device platform |
+| `--device <serial-or-udid>` | Request an exact available identity without accepting another device |
+| `--owner <identity>` | Override the caller's checkout identity |
+| `--label <text>` | Attach a human-readable task label to metadata |
+| `--ttl-minutes <number>` | Lease lifetime; default 240, minimum 1 |
+| `--wait-seconds <number>` | Acquisition capacity wait; default 1800; 0 disables queuing |
+| `--no-boot` | Avoid attempting to boot spare Android pool AVDs |
+| `--exclusive` | Refuse acquisition if this owner already has a live lease on the platform |
+| `--ios-family iphone\|ipad\|all` | iOS discovery family; default iphone |
+| `--json` | Return acquisition identity and token as JSON instead of shell exports |
+| `--token <uuid>` | Fence an operation to a particular acquisition generation |
+| `--allow-physical` | Explicitly opt physical Android devices into allocation |
+
+Normal repeated acquisition renews and reuses the same owner's available device.
+One owner holds at most one device on each platform. A requested device
+conflicting with that owner's existing lease fails rather than silently moving
+the session.
+
+`acquire` writes exports or JSON to stdout and diagnostics to stderr. A failed
+acquisition returns nonzero and emits `false`, so shell evaluation cannot silently
+succeed with an empty pin. `list` writes its human-readable inventory to stderr.
+`renew` prints the renewed device ID.
+
+Release without `--platform` considers both platforms and normally removes only
+this owner's leases. Supplying or inheriting a token restricts release to that
+generation. A privileged `--force` release option exists for manual recovery;
+agents should not use it to take another task's device.
+
+Capacity polling and Android boot attempts have separate budgets. An on-demand
+boot attempt can take up to 180 seconds, so `--wait-seconds` is not a strict
+overall wall-clock limit. Use `--no-boot` with zero wait for an immediate capacity
+decision. Each registry mutation has a 60-second mutex wait.
+
+## Execute against an existing lease
+
+```sh
+device-lease exec --platform android -- adb shell input tap 540 1200
+device-lease exec --platform ios -- xcrun simctl io MOBILE_DEVICE screenshot shot.png
+```
+
+The wrapper renews before starting the command and heartbeats at a quarter of
+its configured TTL. Use the same `--ttl-minutes` when intentionally using a
+custom lifetime. It propagates the child command's exit status.
+
+`MOBILE_DEVICE` can appear as a whole argument or a placeholder in a value such
+as `target=MOBILE_DEVICE`. Variable names such as `MOBILE_DEVICE_LEASE_DIR` are
+left intact. Do not supply a conflicting literal `adb -s` or simulator UDID.
+
+If a heartbeat confirms lost ownership, the command's result is rejected after
+the child finishes. Version 0.1.0 does not immediately cancel that child.
+Do not release or force-transfer a device while a command still uses it.
+
+## Run an automatic device session
+
+```sh
+device-session --platform android -- adb shell getprop sys.boot_completed
+```
+
+The session wrapper accepts `--device`, `--owner`, `--label`, `--ttl-minutes`,
+`--wait-seconds`, `--ios-family` and `--no-boot`. It acquires exclusively, keeps
+the child under the execution heartbeat and releases using the captured token.
+An existing same-owner lease is left untouched. Child failure still triggers
+cleanup. Abrupt process termination can leave a lease until expiry.
+
+## Serialise a heavy build
+
+```sh
+mobile-build-slot --label Android -- ./gradlew assembleDebug
+mobile-build-slot --label iOS -- xcodebuild -project Example.xcodeproj -scheme Example build
+```
+
+The wrapper holds a loopback TCP listener during the child command. Default port
+is 46781 and default wait is 900 seconds. Use the same configured port across
+all participating projects. The diagnostic metadata file is not the lock.
+This command does not allocate a device; acquire a device separately when the
+build and subsequent installation form a device session.
+
+## Provision Android capacity
+
+```sh
+android-device-pool --size 3
+android-device-pool --list
+android-device-pool --package 'system-images;android-36;google_apis_playstore;x86_64'
+```
+
+`--size` defaults to 3 and `--device-profile` defaults to `pixel_6`.
+The pool prefix is `mobile-agent`; change the shared helper's `AVD_POOL_PREFIX`
+if managing a different pool. The lease manager boots only stopped AVDs with
+that prefix. The provisioner creates missing AVDs and enables their hardware
+keyboard. Existing AVDs are not recreated or reconfigured.
+
+SDK discovery uses `ANDROID_SDK_ROOT`, then `ANDROID_HOME`, then the macOS SDK
+location. Set an SDK variable on other hosts. Put `adb` on PATH. SDK image and
+profile availability are local prerequisites, not downloaded dependencies.
+
+## Recover the owned virtual device
+
+```sh
+device-lease recover --platform android --app-packages com.example.app,com.example.app.debug
+device-lease recover --platform ios
+device-lease recover --platform android --reboot --app-packages com.example.app,com.example.app.debug
+```
+
+Recovery requires a live lease and refuses physical hardware. It holds the
+platform mutation mutex during destructive recovery. Android checks boot health,
+package service and the focused error window. Configured application crashes
+and ANRs are preserved. If a blocking dialog cannot be identified, or application
+packages have not been configured, recovery stops before dismissing it.
+
+A known unrelated package's blocking dialog may be cleared with `am force-stop`.
+Runtime recovery can restart the owned emulator once. Host process recovery
+requires `lsof`, `ps` and a provable SDK emulator executable; ambiguity stops the
+operation. iOS settles the owned simulator and can perform one requested reboot.
+Recovery uses no global shutdown or reset command.
+
+## Environment variables
+
+| Variable | Purpose |
+| --- | --- |
+| `MOBILE_DEVICE_LEASE_DIR` | Override the shared registry root |
+| `XDG_STATE_HOME` | Base for default registry and diagnostic metadata |
+| `MOBILE_DEVICE_OWNER` | Override the default caller checkout identity |
+| `MOBILE_DEVICE_PLATFORM` | Default platform for commands other than unrestricted release |
+| `MOBILE_DEVICE_TOKEN` | Optional acquisition-generation fence |
+| `MOBILE_APP_PACKAGES` | Comma-separated Android application package IDs to preserve during recovery |
+| `MOBILE_ANDROID_SYSTEM_IMAGE` | Default image for the Android provisioner |
+| `MOBILE_BUILD_LOCK_PORT` | Shared loopback build-slot port |
+| `MOBILE_BUILD_LOCK` | Build-holder diagnostic metadata path |
+| `MOBILE_BUILD_LOCK_DISABLED` | Set to 1 to bypass build serialisation for an intentional manual use |
+| `ANDROID_HOME` or `ANDROID_SDK_ROOT` | Android SDK location |
+
+Acquisition exports `MOBILE_DEVICE_ID`, `MOBILE_DEVICE_NAME`,
+`MOBILE_DEVICE_PLATFORM` and `MOBILE_DEVICE_TOKEN`; Android also exports
+`ANDROID_SERIAL` / `ADB_DEVICE_SERIAL`, and iOS exports `IOS_SIMULATOR`.
+`MOBILE_DEVICE_FAKE_CAPACITY` and `MOBILE_DEVICE_TEST_*` are test seams; do not
+configure them in real agent sessions.
+
+Use a short local registry path: Unix socket path lengths are limited by the
+host operating system. Do not store the registry on a remote/shared filesystem.
