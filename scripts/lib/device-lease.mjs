@@ -61,8 +61,9 @@ export function parseAndroidBlockingDialog({ windowDump } = {}) {
   };
 }
 
-function isApplicationAndroidPackage(packageName, appPackages) {
-  return appPackages.includes(packageName);
+function isApplicationAndroidPackage(packageName, appPackages, appPackagePrefixes) {
+  return appPackages.includes(packageName) || appPackagePrefixes.some((prefix) =>
+    packageName === prefix || packageName?.startsWith(`${prefix}.`));
 }
 
 export function androidRecoveryDecision({
@@ -72,11 +73,12 @@ export function androidRecoveryDecision({
   emulator,
   forceReboot = false,
   appPackages = [],
+  appPackagePrefixes = [],
 } = {}) {
   if (health?.healthy && windowProbeSucceeded === false) {
     return { action: "fail-window-probe" };
   }
-  if (isApplicationAndroidPackage(blockingDialog?.packageName, appPackages)) {
+  if (isApplicationAndroidPackage(blockingDialog?.packageName, appPackages, appPackagePrefixes)) {
     return { action: "fail-app", packageName: blockingDialog.packageName };
   }
 
@@ -85,7 +87,7 @@ export function androidRecoveryDecision({
   if (!emulator) return { action: "refuse-hardware" };
   if (blockingDialog && !blockingDialog.packageName) return { action: "fail-unknown-app" };
 
-  if (blockingDialog && appPackages.length === 0) return { action: "fail-unknown-app" };
+  if (blockingDialog && appPackages.length === 0 && appPackagePrefixes.length === 0) return { action: "fail-unknown-app" };
 
   if (forceReboot) return { action: "reboot", reason: "restart requested" };
 
@@ -276,7 +278,7 @@ export function planAcquisition({ capacityIds, leases, owner, nowMs, ttlMs, requ
 export function shellQuote(value) {
   return `'${String(value).replaceAll("'", `'\\''`)}'`;
 }
-export function formatExportLines({ platform, deviceId, name, token }) {
+export function formatExportLines({ platform, deviceId, name, token, compatPrefix }) {
   const assign = (key, value) => `${key}=${shellQuote(value)}`;
 
   const lines = [assign("MOBILE_DEVICE_PLATFORM", platform), assign("MOBILE_DEVICE_ID", deviceId)];
@@ -289,12 +291,32 @@ export function formatExportLines({ platform, deviceId, name, token }) {
 
   if (name) lines.push(assign("MOBILE_DEVICE_NAME", name));
   if (token) lines.push(assign("MOBILE_DEVICE_TOKEN", token));
-
+  const legacy = resolveDeviceCompatPrefix(compatPrefix);
+  if (legacy && legacy !== "MOBILE_DEVICE") {
+    lines.push(...lines.filter((line) => line.startsWith("MOBILE_DEVICE_")).map((line) =>
+      `${legacy}${line.slice("MOBILE_DEVICE".length)}`));
+  }
   return lines;
 }
 
 export const AVD_POOL_PREFIX = "mobile-agent";
 export const DEFAULT_AVD_POOL_SIZE = 3;
+
+export function resolveAvdPoolPrefix(value = AVD_POOL_PREFIX) {
+  if (typeof value !== "string" || !/^[A-Za-z][A-Za-z0-9_-]{0,48}$/.test(value)) {
+    throw new Error("AVD pool prefix must contain letters, numbers, underscores or hyphens and start with a letter.");
+  }
+  return value;
+}
+
+export function resolveDeviceCompatPrefix(value) {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string" || !/^[A-Z][A-Z0-9_]{0,48}$/.test(value)) {
+    throw new Error("Device compatibility prefix must contain uppercase letters, numbers or underscores and start with a letter.");
+  }
+  return value;
+}
+
 
 export function avdPoolNames(size, prefix = AVD_POOL_PREFIX) {
   return Array.from({ length: size }, (_, index) => `${prefix}-${index + 1}`);

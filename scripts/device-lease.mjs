@@ -40,6 +40,8 @@ import {
   parseSimctlIphones,
   planAcquisition,
   resolveLeaseRoot,
+  resolveAvdPoolPrefix,
+  resolveDeviceCompatPrefix,
   sameAndroidEmulatorProcess,
 } from "./lib/device-lease.mjs";
 import {
@@ -56,7 +58,7 @@ const command = process.argv[2];
 const platformFlag = argValue("--platform", undefined);
 const platformArg = platformFlag ?? process.env.MOBILE_DEVICE_PLATFORM;
 const expectedToken = argValue("--token", process.env.MOBILE_DEVICE_TOKEN);
-for (const flag of ["--device", "--token"]) {
+for (const flag of ["--device", "--token", "--avd-prefix", "--app-package-prefixes"]) {
   if (hasArg(flag) && (!argValue(flag, undefined) || argValue(flag, undefined).startsWith("--"))) {
     fail(`${flag} requires an explicit value; no lease was changed.`);
   }
@@ -84,6 +86,12 @@ const waitMs = numberFlag("--wait-seconds", DEFAULT_WAIT_SECONDS, { allowZero: t
 const pollMs = 5000;
 const allowBoot = !hasArg("--no-boot");
 const allowPhysical = hasArg("--allow-physical");
+let avdPoolPrefix, compatPrefix;
+try {
+  avdPoolPrefix = resolveAvdPoolPrefix(argValue("--avd-prefix", process.env.MOBILE_AVD_POOL_PREFIX));
+  compatPrefix = resolveDeviceCompatPrefix(process.env.MOBILE_DEVICE_COMPAT_PREFIX);
+} catch (error) { fail(error.message); }
+
 
 const leaseRoot = resolveLeaseRoot(process.env, homedir());
 function log(message) {
@@ -535,12 +543,15 @@ function failAndroidWindowProbe(serial) {
 function recoverAndroid(serial, { forceReboot = false } = {}) {
   const appPackages = String(argValue("--app-packages", process.env.MOBILE_APP_PACKAGES ?? ""))
     .split(",").map((value) => value.trim()).filter(Boolean);
-  if (appPackages.some((value) => !/^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+$/.test(value))) {
-    fail("--app-packages / MOBILE_APP_PACKAGES must contain comma-separated Android package IDs.");
+  const appPackagePrefixes = String(argValue("--app-package-prefixes", process.env.MOBILE_APP_PACKAGE_PREFIXES ?? ""))
+    .split(",").map((value) => value.trim()).filter(Boolean);
+  if ([...appPackages, ...appPackagePrefixes].some((value) => !/^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+$/.test(value))) {
+    fail("--app-packages / MOBILE_APP_PACKAGES and application package prefixes must contain comma-separated Android package IDs.");
   }
   let probe = androidRuntimeProbe(serial);
   let decision = androidRecoveryDecision({
     appPackages,
+    appPackagePrefixes,
     ...probe,
     emulator: androidEmulator(serial),
     forceReboot,
@@ -592,6 +603,7 @@ function recoverAndroid(serial, { forceReboot = false } = {}) {
       probe = androidRuntimeProbe(serial);
       decision = androidRecoveryDecision({
         appPackages,
+        appPackagePrefixes,
         ...probe,
         emulator: true,
       });
@@ -746,7 +758,7 @@ function bootedAvdNames(serials) {
 function bootSpareAvd() {
   const before = attachedAndroidSerials({ allowPhysical: true });
   const running = bootedAvdNames(before);
-  const spare = bootableAvdCandidates(avdNames(), running)[0];
+  const spare = bootableAvdCandidates(avdNames(), running, avdPoolPrefix)[0];
   if (!spare) return null;
 
   log(`Booting spare AVD "${spare}" to widen the pool.`);
@@ -914,7 +926,7 @@ function emit(platform, deviceId, pool, token) {
   const emitDelayMs = Number(process.env.MOBILE_DEVICE_TEST_EMIT_DELAY_MS ?? 0);
   if (emitDelayMs > 0) sleep(emitDelayMs);
   const name = pool.find((device) => device.id === deviceId)?.name;
-  const lines = formatExportLines({ platform, deviceId, name, token });
+  const lines = formatExportLines({ platform, deviceId, name, token, compatPrefix });
   if (hasArg("--json")) {
     process.stdout.write(`${JSON.stringify({ platform, deviceId, token, owner: resolveOwner() })}\n`);
   } else {
@@ -996,16 +1008,15 @@ async function execWithLease() {
   }
 
   const env = { ...process.env };
-  for (const line of formatExportLines({ platform, deviceId })) {
+  for (const line of formatExportLines({ platform, deviceId, token: renewed, compatPrefix })) {
     const index = line.indexOf("=");
     env[line.slice(0, index)] = line
       .slice(index + 1)
       .replace(/^'|'$/g, "")
       .replaceAll(`'\\''`, "'");
   }
-  const substituted = argv.map((arg) =>
-    arg === "MOBILE_DEVICE" ? deviceId : arg.replace(/MOBILE_DEVICE(?![A-Za-z0-9_])/g, deviceId),
-  );
+  const placeholder = new RegExp(`(?:${["MOBILE_DEVICE", compatPrefix].filter(Boolean).join("|")})(?![A-Za-z0-9_])`, "g");
+  const substituted = argv.map((arg) => arg.replace(placeholder, deviceId));
   if (substituted.some((arg) => arg === "booted")) {
     fail(
       "Refusing to run a `booted` device operand under a lease: it resolves to " +

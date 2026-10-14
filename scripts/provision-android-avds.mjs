@@ -7,7 +7,6 @@ import { join } from "node:path";
 
 import { makeArgReader } from "./lib/args.mjs";
 import {
-  AVD_POOL_PREFIX,
   DEFAULT_AVD_POOL_SIZE,
   PINNED_SYSTEM_IMAGE_PACKAGE,
   avdPoolNames,
@@ -15,6 +14,7 @@ import {
   parseAvdNames,
   parseAvdPath,
   resolveAvdHome,
+  resolveAvdPoolPrefix,
   toSystemImagePackage,
   withHardwareKeyboard,
 } from "./lib/device-lease.mjs";
@@ -28,6 +28,13 @@ const sdkRoot =
 const size = Number(argValue("--size", String(DEFAULT_AVD_POOL_SIZE)));
 const deviceProfile = argValue("--device-profile", "pixel_6");
 const requestedPackage = argValue("--package", process.env.MOBILE_ANDROID_SYSTEM_IMAGE);
+let avdPoolPrefix;
+try {
+  const requestedPrefix = argValue("--avd-prefix", process.env.MOBILE_AVD_POOL_PREFIX);
+  if (hasArg("--avd-prefix") && (!requestedPrefix || requestedPrefix.startsWith("--"))) fail("--avd-prefix requires an explicit value.");
+  avdPoolPrefix = resolveAvdPoolPrefix(requestedPrefix);
+} catch (error) { fail(error.message); }
+
 
 function bin(relative, fallback) {
   const candidate = join(sdkRoot, relative);
@@ -87,7 +94,7 @@ if (hasArg("--list")) {
   const existing = existingAvds();
   console.log(`AVDs (${existing.length}):`);
   for (const name of existing) {
-    console.log(`  ${name}${name.startsWith(AVD_POOL_PREFIX) ? "  (pool)" : ""}`);
+    console.log(`  ${name}${name.startsWith(`${avdPoolPrefix}-`) ? "  (pool)" : ""}`);
   }
   process.exit(0);
 }
@@ -117,7 +124,7 @@ const image = requestedPackage
     })();
 
 const existing = new Set(existingAvds());
-const wanted = avdPoolNames(size);
+const wanted = avdPoolNames(size, avdPoolPrefix);
 const missing = wanted.filter((name) => !existing.has(name));
 
 console.log(`System image: ${image.package}`);

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0 1 1
+
+- Configure an existing Android AVD pool consistently across provisioning and allocation.
+- Supply optional legacy device exports and operand placeholders without changing neutral defaults.
+- Protect Android application package families during owned-device recovery.
+- Preserve child acquisition token exports during wrapped execution.
+
 ## 0 1 0
 
 Initial project-neutral extraction for local agent worktrees.

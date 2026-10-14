@@ -14,13 +14,13 @@ You do not need to clone this repository to use the tool. Install a pinned
 release in your application's repository:
 
 ```sh
-pnpm add -D github:nick-cobra/agent-mobile-device-lease#v0.1.0
+pnpm add -D github:nick-cobra/agent-mobile-device-lease#v0.1.1
 ```
 
 Or use npm:
 
 ```sh
-npm install --save-dev github:nick-cobra/agent-mobile-device-lease#v0.1.0
+npm install --save-dev github:nick-cobra/agent-mobile-device-lease#v0.1.1
 ```
 
 Run the commands below from
@@ -29,7 +29,7 @@ worktree. The CLI identifies the caller's checkout, including when installed in
 `node_modules` or run from a subdirectory.
 
 Requirements: Node 22 or later; Android SDK tools on PATH for Android; Xcode and
-an installed simulator runtime for iOS. Version 0.1.0 targets macOS. The lease and
+an installed simulator runtime for iOS. Version 0.1.1 targets macOS. The lease and
 build-lock tests are also suitable for Linux; host recovery needs platform
 validation. Windows and remote-device coordination are not supported yet.
 

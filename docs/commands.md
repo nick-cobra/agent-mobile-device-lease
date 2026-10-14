@@ -26,6 +26,7 @@ device-lease release
 | `--no-boot` | Avoid attempting to boot spare Android pool AVDs |
 | `--exclusive` | Refuse acquisition if this owner already has a live lease on the platform |
 | `--ios-family iphone\|ipad\|all` | iOS discovery family; default iphone |
+| `--avd-prefix <name>` | Android pool prefix; overrides `MOBILE_AVD_POOL_PREFIX` |
 | `--json` | Return acquisition identity and token as JSON instead of shell exports |
 | `--token <uuid>` | Fence an operation to a particular acquisition generation |
 | `--allow-physical` | Explicitly opt physical Android devices into allocation |
@@ -103,8 +104,8 @@ android-device-pool --package 'system-images;android-36;google_apis_playstore;x8
 ```
 
 `--size` defaults to 3 and `--device-profile` defaults to `pixel_6`.
-The pool prefix is `mobile-agent`; change the shared helper's `AVD_POOL_PREFIX`
-if managing a different pool. The lease manager boots only stopped AVDs with
+The pool prefix is `mobile-agent`; configure `MOBILE_AVD_POOL_PREFIX` / `--avd-prefix` if managing a different
+pool. Use the same prefix for provisioning and allocation. The lease manager boots only stopped AVDs with
 that prefix. The provisioner creates missing AVDs and enables their hardware
 keyboard. Existing AVDs are not recreated or reconfigured.
 
@@ -132,6 +133,19 @@ requires `lsof`, `ps` and a provable SDK emulator executable; ambiguity stops th
 operation. iOS settles the owned simulator and can perform one requested reboot.
 Recovery uses no global shutdown or reset command.
 
+Application families can be protected with `MOBILE_APP_PACKAGE_PREFIXES` or
+`--app-package-prefixes`. For example, `com.example.club` protects that exact
+package and its dot-separated variants; it does not match `com.example.clubevil`.
+
+For migration from a different environment interface, set
+`MOBILE_DEVICE_COMPAT_PREFIX=LEGACY_DEVICE`. Acquisition and wrapped child
+commands then also receive `LEGACY_DEVICE_ID`, `LEGACY_DEVICE_PLATFORM` and
+the available name/token exports. `LEGACY_DEVICE` becomes an additional device
+operand placeholder. Neutral exports remain available. Compatibility prefixes
+must start with an uppercase letter and contain only uppercase letters, digits
+or underscores. This setting does not translate incoming legacy variables;
+an application adapter must map its inputs to the neutral variables explicitly.
+
 ## Environment variables
 
 | Variable | Purpose |
@@ -142,6 +156,9 @@ Recovery uses no global shutdown or reset command.
 | `MOBILE_DEVICE_PLATFORM` | Default platform for commands other than unrestricted release |
 | `MOBILE_DEVICE_TOKEN` | Optional acquisition-generation fence |
 | `MOBILE_APP_PACKAGES` | Comma-separated Android application package IDs to preserve during recovery |
+| `MOBILE_APP_PACKAGE_PREFIXES` | Comma-separated protected Android application package families |
+| `MOBILE_AVD_POOL_PREFIX` | Android pool prefix shared by provisioning and allocation |
+| `MOBILE_DEVICE_COMPAT_PREFIX` | Optional legacy device export and operand prefix |
 | `MOBILE_ANDROID_SYSTEM_IMAGE` | Default image for the Android provisioner |
 | `MOBILE_BUILD_LOCK_PORT` | Shared loopback build-slot port |
 | `MOBILE_BUILD_LOCK` | Build-holder diagnostic metadata path |
