@@ -1015,7 +1015,7 @@ async function execWithLease() {
       .replace(/^'|'$/g, "")
       .replaceAll(`'\\''`, "'");
   }
-  const placeholder = new RegExp(`(?:${["MOBILE_DEVICE", compatPrefix].filter(Boolean).join("|")})(?![A-Za-z0-9_])`, "g");
+  const placeholder = new RegExp(`(?<![A-Za-z0-9_])(?:${["MOBILE_DEVICE", compatPrefix].filter(Boolean).join("|")})(?![A-Za-z0-9_])`, "g");
   const substituted = argv.map((arg) => arg.replace(placeholder, deviceId));
   if (substituted.some((arg) => arg === "booted")) {
     fail(

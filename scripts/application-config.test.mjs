@@ -41,6 +41,15 @@ test("malformed legacy prefixes fail before allocation", () => fixture(async (ro
   assert.match(result.stderr, /prefix/i);
 }));
 
+test("compatibility operands are tokens and do not rewrite partial words or variable names", () => fixture(async (root, env) => {
+  env.MOBILE_DEVICE_COMPAT_PREFIX = "LEGACY_DEVICE";
+  const acquired = await run("device-lease.mjs", acquire, env);
+  assert.equal(acquired.code, 0, acquired.stderr);
+  const result = await run("device-lease.mjs", ["exec", "--platform", "android", "--", "echo", "MYLEGACY_DEVICE", "LEGACY_DEVICE_ID", "target=LEGACY_DEVICE"], env);
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "MYLEGACY_DEVICE LEGACY_DEVICE_ID target=emulator-5554");
+}));
+
 test("protected package prefixes preserve all application variants without matching neighbours", () => {
   const probe = { health: { healthy: true }, emulator: true, blockingDialog: { kind: "anr", packageName: "com.example.club.custom" }, appPackagePrefixes: ["com.example.club"] };
   assert.equal(androidRecoveryDecision(probe).action, "fail-app");
