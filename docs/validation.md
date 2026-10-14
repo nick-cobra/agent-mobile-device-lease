@@ -47,3 +47,14 @@ used Node 24 on macOS. CI results must be checked separately after publication.
 Windows, remote hosts and distributed allocation are outside the supported
 scope of this release. Version 0.1.0 is an initial release; consumers should pin
 the release and perform the integration checks in `docs/integration.md`.
+
+## Version 0 1 1 compatibility configuration
+
+All 168 standalone tests passed locally after the configuration update. Five
+focused checks first failed against version 0.1.0 for missing legacy exports,
+invalid-prefix acceptance, missing package-family protection and the wrong pool
+selection in provisioning and on-demand boot; all five passed after implementation.
+Additional final checks cover explicit prefix precedence and the actual recovery
+CLI preserving a configured application's ANR. Existing 160 tests remain green.
+
+A further focused RED showed that a legacy operand prefix rewrote a partial word; the token-boundary fix passed its focused GREEN and the final 168-test corpus.
