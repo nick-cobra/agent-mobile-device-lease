@@ -8,30 +8,60 @@ agent's session.
 The tool runs locally, uses Node built-ins and has no runtime package dependencies.
 It does not require an account, hosted service or paid tier.
 
-## Install in your own application
+## Choose how to adopt it
 
-You do not need to clone this repository to use the tool. Install a pinned
-release in your application's repository:
+> Do you want this for your own agents on this machine, or as a shared project workflow?
+
+| | Personal | Project/team |
+| --- | --- | --- |
+| Install | Once on your Mac, globally | Pinned development dependency in the application |
+| Agent participation | Standing personal instructions | Committed project instructions |
+| Launchers | Optional adapter outside application repositories | Shared lease-aware launchers |
+| Application changes | None required | Manifest, lockfile, instructions and integration |
+
+Both paths coordinate through the **same registry** when sharing devices. The
+installation location does not own the lease: the caller's worktree does.
+Installing the CLI alone does not make agents use it. Complete the matching
+instructions and launcher steps in [Adoption](docs/adoption.md).
+
+## Protection boundary
+
+Leases coordinate participating agents on one machine. They do not block
+operating-system access to devices. Unwrapped SDK commands and launchers that
+ignore the pin can bypass the protocol. Version 0.1.2 rejects conflicting
+selectors in **directly wrapped** `adb`, `simctl` and `xcrun simctl` commands;
+it cannot inspect commands hidden inside arbitrary scripts or shells.
+
+## Install
+
+No checkout of this tool repository is required.
+
+For personal use, install once and then add the [personal agent rule](docs/agent-instructions.md):
 
 ```sh
-pnpm add -D github:nick-cobra/agent-mobile-device-lease#v0.1.1
+npm install --global github:nick-cobra/agent-mobile-device-lease#v0.1.2
+device-lease doctor --platform android
 ```
 
-Or use npm:
+For a project/team workflow, install in the application and commit its lockfile:
 
 ```sh
-npm install --save-dev github:nick-cobra/agent-mobile-device-lease#v0.1.1
+pnpm add -D github:nick-cobra/agent-mobile-device-lease#v0.1.2
+# Or: npm install --save-dev github:nick-cobra/agent-mobile-device-lease#v0.1.2
+pnpm exec device-lease doctor --platform android
 ```
 
-Run the commands below from
-your application's checkout. Each independent agent should use a separate Git
-worktree. The CLI identifies the caller's checkout, including when installed in
-`node_modules` or run from a subdirectory.
+For iOS, use `--platform ios`. A doctor's nonzero result lists missing
+prerequisites or absent capacity. It never boots, provisions or claims a device.
 
-Requirements: Node 22 or later; Android SDK tools on PATH for Android; Xcode and
-an installed simulator runtime for iOS. Version 0.1.1 targets macOS. The lease and
-build-lock tests are also suitable for Linux; host recovery needs platform
-validation. Windows and remote-device coordination are not supported yet.
+Requirements: Node 22 or later; Android SDK tools for Android; Xcode and an
+installed simulator runtime for iOS. This release targets macOS. Core lease and
+build-lock tests also run on Linux; host recovery needs platform validation.
+Windows and remote-device coordination are not supported yet.
+
+Run device commands from the application's checkout. Each independent agent
+should use a separate Git worktree. The examples below use project-local
+`pnpm exec`; personal installations use the same commands without that prefix.
 
 ## Use a device throughout an agent task
 
@@ -114,16 +144,17 @@ Different registries cannot protect overlapping device pools. When migrating
 from an existing lease manager, configure both managers to use the same root;
 verify metadata and locking compatibility before running them together.
 
-The lease is a cooperative local protocol. Unwrapped commands, an explicit
-conflicting device selector or automation without a target selector can bypass
-it. It does not enforce an operating-system access boundary on the emulator.
+See the protection boundary above. Sharing a registry is required for both
+personal and team adoption; a shared instruction alone cannot connect separate
+registries.
 
 ## Learn more
 
+- [Adoption](docs/adoption.md) starts with the personal/project choice.
 - [Command reference](docs/commands.md) covers options, variables and recovery.
 - [Project integration](docs/integration.md) covers launchers and migration.
 - [Design guide](docs/guide.md) explains persistence, concurrency and expiry.
-- [Agent instructions](docs/agent-instructions.md) can be copied into an application's `AGENTS.md`.
+- [Agent instructions](docs/agent-instructions.md) includes personal and project standing rules.
 - [Validation](docs/validation.md) records checks and their limits.
 
 To contribute, clone the tool repository and run `npm test`. The tests use

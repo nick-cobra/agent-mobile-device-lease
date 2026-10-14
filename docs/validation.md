@@ -1,4 +1,6 @@
-# Validation for version 0 1 0
+# Validation
+
+## Initial 0.1.0 validation
 
 Checked on 14 October 2026 with Node 24.19.0 on macOS.
 
@@ -48,7 +50,7 @@ Windows, remote hosts and distributed allocation are outside the supported
 scope of this release. Version 0.1.0 is an initial release; consumers should pin
 the release and perform the integration checks in `docs/integration.md`.
 
-## Version 0 1 1 compatibility configuration
+## Version 0.1.1 compatibility configuration
 
 All 168 standalone tests passed locally after the configuration update. Five
 focused checks first failed against version 0.1.0 for missing legacy exports,
@@ -58,3 +60,31 @@ Additional final checks cover explicit prefix precedence and the actual recovery
 CLI preserving a configured application's ANR. Existing 160 tests remain green.
 
 A further focused RED showed that a legacy operand prefix rewrote a partial word; the token-boundary fix passed its focused GREEN and the final 168-test corpus.
+
+## Version 0.1.2 adoption and SDK checks
+
+All **196 tests passed** locally on Node 22.23.2, macOS, with no failures,
+skips or cancellations. The original 168 tests remain green. The new corpus
+covers direct Android selector overrides, conflicting/global iOS targets,
+matching targets and ordinary install/shell flags, explicit-owner propagation,
+missing `avdmanager`, read-only Android/iOS diagnostics, and the personal adapter.
+
+Fifteen focused tests first failed against 0.1.1: overridden SDK selectors were
+executed, the missing executable was misreported, and doctor was unavailable.
+A separate RED reproduced a lost explicit owner in a nested personal session;
+that regression passes after the captured owner is exported. The final corpus
+also verifies refusal of multiple simulator targets and instrumentation failures,
+zero-test results and stale acquisition generations.
+
+An offline packaged-installation test installs the same tarball globally in a
+personal prefix and locally in a disposable project. The personal application's
+manifest stays absent. Both installations resolve their calling worktrees,
+contend for the same registry, reject a conflicting wrapped selector, and release
+only the captured generation. The package includes the adoption guide and
+copyable personal adapter.
+
+These new SDK/adapter checks use stubs and disposable registries, not application
+builds or live devices. They do not establish every application's instrumentation
+runner or screenshot state. The original real-device evidence above remains
+identified as the initial validation. Hosted Node 22/24 macOS/Linux CI provides
+separate platform evidence after publication.

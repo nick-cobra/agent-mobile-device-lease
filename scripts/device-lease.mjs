@@ -18,6 +18,8 @@ import { dirname, join } from "node:path";
 
 import { makeArgReader } from "./lib/args.mjs";
 import { resolveOwner as resolveCallerOwner } from "./lib/owner.mjs";
+import { assertSdkTarget } from "./lib/sdk-target.mjs";
+import { doctorReport } from "./lib/doctor.mjs";
 import {
   DEFAULT_TTL_MINUTES,
   DEFAULT_WAIT_SECONDS,
@@ -573,14 +575,14 @@ function recoverAndroid(serial, { forceReboot = false } = {}) {
     fail(
       `The application is ${probe.blockingDialog?.kind === "crash" ? "crashing" : "not responding"} on ${serial} (${decision.packageName}).\n` +
         "This is app evidence, not emulator dirt, so automatic recovery stopped without dismissing it.\n" +
-        "Inspect it with: pnpm -s device:lease exec --platform android -- adb shell dumpsys activity lastanr",
+        "Inspect it with: device-lease exec --platform android -- adb shell dumpsys activity lastanr",
     );
   }
   if (decision.action === "fail-unknown-app") {
     fail(
       `An Android app failure dialog is blocking ${serial}, but its package could not be identified or application packages were not configured.\n` +
         "Recovery stopped to preserve application evidence. Configure --app-packages or MOBILE_APP_PACKAGES.\n" +
-        "Inspect it with: pnpm -s device:lease exec --platform android -- adb shell dumpsys window windows",
+        "Inspect it with: device-lease exec --platform android -- adb shell dumpsys window windows",
     );
   }
 
@@ -909,7 +911,7 @@ async function acquire() {
       fail(
         `No free ${platform} device after ${Math.round(waitMs / 1000)}s. ` +
           `Held by: ${(outcome.blockedBy ?? []).join(", ") || "unknown"}. ` +
-          `Run \`node scripts/device-lease.mjs list\` to inspect, or provision more capacity ` +
+          `Run \`device-lease list\` to inspect, or provision more capacity ` +
           `(\`pnpm android:avds\` for Android).`,
       );
     }
@@ -993,7 +995,7 @@ async function execWithLease() {
   if (!deviceId) {
     fail(
       `This worktree holds no ${platform} lease. Acquire one first:\n` +
-        `  node scripts/device-lease.mjs acquire --platform ${platform}`,
+        `  device-lease acquire --platform ${platform}`,
     );
   }
   const renewed = await withLeaseMutex(platform, () =>
@@ -1003,11 +1005,12 @@ async function execWithLease() {
   if (!renewed) {
     fail(
       `This worktree's ${platform} lease on ${deviceId} is no longer valid.\n` +
-        `  node scripts/device-lease.mjs acquire --platform ${platform}`,
+        `  device-lease acquire --platform ${platform}`,
     );
   }
 
   const env = { ...process.env };
+  env.MOBILE_DEVICE_OWNER = owner;
   for (const line of formatExportLines({ platform, deviceId, token: renewed, compatPrefix })) {
     const index = line.indexOf("=");
     env[line.slice(0, index)] = line
@@ -1026,6 +1029,7 @@ async function execWithLease() {
     );
   }
   const [command, ...rest] = substituted;
+  assertSdkTarget(substituted, { platform, deviceId });
   let renewalLost = false;
 
   const heartbeat = setInterval(
@@ -1098,7 +1102,7 @@ async function recoverCommand() {
   if (!deviceId) {
     fail(
       `This worktree holds no live ${platform} lease. Acquire one before recovery:\n` +
-        `  pnpm -s device:lease acquire --platform ${platform}`,
+        `  device-lease acquire --platform ${platform}`,
     );
   }
 
@@ -1154,16 +1158,28 @@ try {
     case "list":
       list();
       break;
+    case "doctor": {
+      const report = doctorReport({ platform: requirePlatform(), leaseRoot, owner: resolveOwner(), avdPoolPrefix, iosFamily: argValue("--ios-family", "iphone") });
+      if (hasArg("--json")) process.stdout.write(`${JSON.stringify(report)}\n`);
+      else {
+        log(`Registry: ${report.registry}\nOwner: ${report.owner}\nPlatform: ${report.platform}`);
+        for (const check of report.checks) log(`${check.ok ? "OK" : "FAIL"} ${check.name}: ${check.detail}`);
+        log(`Capacity: ${JSON.stringify(report.capacity)}`);
+      }
+      process.exitCode = report.ok ? 0 : 1;
+      break;
+    }
     default:
       fail(
-        "Usage: node scripts/device-lease.mjs <acquire|release|exec|renew|recover|list> " +
+        "Usage: device-lease <acquire|release|exec|renew|recover|list|doctor> " +
           "[--platform android|ios]\n" +
           "  acquire  claim a device for this worktree and print shell exports\n" +
           "  release  drop this worktree's lease(s)\n" +
           "  exec     run a command with this worktree's lease in its environment\n" +
           "  renew    push this worktree's lease expiry out and print the device\n" +
           "  recover  clear a system failure or restart only this worktree's leased virtual device\n" +
-          "  list     show every lease with age and owner",
+          "  list     show every lease with age and owner\n" +
+          "  doctor   check SDK prerequisites, registry and visible capacity without claiming",
       );
   }
 } catch (error) {
