@@ -74,9 +74,29 @@ validated before the device operand; unsupported options fail closed. Arbitrary
 scripts or shells must honour the pin internally; the wrapper cannot inspect
 their SDK calls. [ADB's selector rules](https://android.googlesource.com/platform/packages/modules/adb/+/HEAD/docs/user/adb.1.md).
 
-If a heartbeat confirms lost ownership, the command's result is rejected after
-the child finishes. The wrapper does not immediately cancel that child.
-Do not release or force-transfer a device while a command still uses it.
+The running command is fenced to the owner, device and acquisition token captured
+at startup, even when `--token` was omitted. A separate read-only monitor checks
+that identity and stored expiry every **one second**, independently of renewal
+and its mutex wait. Missing/unreadable metadata, expiry, a changed owner or a
+changed token stops execution. A final check rejects success from a fast command
+that finishes before the first monitor tick.
+
+On loss, the wrapper captures its command's descendant process groups with the
+host's `ps`, sends `SIGTERM`, then sends `SIGKILL` after **750 ms**. Escalation
+continues if the root exits first, so a descendant ignoring `SIGTERM` is stopped.
+The wrapper returns nonzero, preserves successor metadata and does not release
+the task lease. Nested wrappers' separate groups are included when their ancestry
+can still be observed. `SIGINT`/`SIGTERM` received by the wrapper follows the same
+cleanup and returns 130/143 respectively.
+
+These intervals are scheduled on the local event loop, not a hard real-time
+guarantee. SDK work already accepted by a device cannot be undone. Host process
+inspection must be permitted to find detached descendant groups; restrictions
+are reported and the known command group is still stopped. Processes that have
+already daemonised/reparented beyond observable ancestry and a wrapper forcibly
+killed with `SIGKILL` cannot be reliably cleaned up. Keep device work supervised
+and finish it before the launcher returns. Unwrapped SDK access remains outside
+the protocol. Do not release or force-transfer a device during active work.
 
 ## Run an automatic device session
 

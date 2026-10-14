@@ -34,6 +34,8 @@ test("offline personal and project installations coordinate through the same reg
     assert.equal(existsSync(join(personalApp, "package.json")), false, "personal installation must not modify the application manifest");
     assert.equal(existsSync(join(personalPrefix, "lib/node_modules/agent-mobile-device-lease/examples/android-personal-task.mjs")), true);
     assert.equal(existsSync(join(projectApp, "node_modules/agent-mobile-device-lease/docs/adoption.md")), true);
+    const executed = succeeds(invoke(personalCli, ["exec", "--platform", "android", "--", process.execPath, "-e", "process.stdout.write(JSON.stringify({owner:process.env.MOBILE_DEVICE_OWNER,deviceId:process.env.MOBILE_DEVICE_ID,token:process.env.MOBILE_DEVICE_TOKEN}))"], personalApp));
+    assert.deepEqual(JSON.parse(executed.stdout), { owner: lease.owner, deviceId: lease.deviceId, token: lease.token }, "packaged execution helper retains the captured identity");
     const blocked = invoke(projectCli, acquisition, projectApp);
     assert.equal(blocked.status, 1, blocked.stderr);
     assert.match(blocked.stderr, /held|busy|capacity|available/i);

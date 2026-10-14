@@ -88,6 +88,25 @@ test("direct simctl accepts an owned placeholder including launch options", () =
   assert.match(await readFile(env.AMDL_CALL_LOG, "utf8"), /simctl launch --console SIMULATOR-OWNED/);
 }));
 
+for (const options of [["--find", "--run"], ["--run", "--find"], ["-f", "-r"], ["-r", "-f"]]) {
+  test(`xcrun lookup/run ${options.join(" ")} cannot bypass direct simctl target validation`, () => fixture(async (root, env) => {
+    env.MOBILE_DEVICE_FAKE_CAPACITY = "SIMULATOR-OWNED";
+    await acquire(env, "ios");
+    const result = await run("device-lease.mjs", ["exec", "--platform", "ios", "--", "xcrun", ...options, "simctl", "install", "SIMULATOR-OTHER", "app.app"], env);
+    assert.equal(result.code, 1);
+    assert.equal(existsSync(env.AMDL_CALL_LOG), false);
+  }));
+}
+
+test("plain xcrun lookup and combined lookup/run with an owned target remain usable", () => fixture(async (root, env) => {
+  env.MOBILE_DEVICE_FAKE_CAPACITY = "SIMULATOR-OWNED";
+  await acquire(env, "ios");
+  for (const args of [["--find", "simctl"], ["--find", "--run", "simctl", "install", "MOBILE_DEVICE", "app.app"]]) {
+    const result = await run("device-lease.mjs", ["exec", "--platform", "ios", "--", "xcrun", ...args], env);
+    assert.equal(result.code, 0, result.stderr);
+  }
+}));
+
 test("SDK for the other platform cannot run inside the leased wrapper", () => fixture(async (root, env) => {
   await acquire(env);
   const result = await run("device-lease.mjs", ["exec", "--platform", "android", "--", "xcrun", "simctl", "install", "SIMULATOR-OTHER", "app.app"], env);

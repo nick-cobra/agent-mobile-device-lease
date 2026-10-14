@@ -28,9 +28,14 @@ instructions and launcher steps in [Adoption](docs/adoption.md).
 
 Leases coordinate participating agents on one machine. They do not block
 operating-system access to devices. Unwrapped SDK commands and launchers that
-ignore the pin can bypass the protocol. Version 0.1.2 rejects conflicting
+ignore the pin can bypass the protocol. Direct commands reject conflicting
 selectors in **directly wrapped** `adb`, `simctl` and `xcrun simctl` commands;
 it cannot inspect commands hidden inside arbitrary scripts or shells.
+
+While `exec` runs, it checks the captured lease every second. Lost ownership or
+expiry stops its command and captured descendant process groups (`SIGTERM`,
+then `SIGKILL` after 750 ms) and returns failure. This is cooperative host
+process supervision; see [execution limits](docs/commands.md#execute-against-an-existing-lease).
 
 ## Install
 
@@ -39,15 +44,15 @@ No checkout of this tool repository is required.
 For personal use, install once and then add the [personal agent rule](docs/agent-instructions.md):
 
 ```sh
-npm install --global github:nick-cobra/agent-mobile-device-lease#v0.1.2
+npm install --global github:nick-cobra/agent-mobile-device-lease#v0.1.3
 device-lease doctor --platform android
 ```
 
 For a project/team workflow, install in the application and commit its lockfile:
 
 ```sh
-pnpm add -D github:nick-cobra/agent-mobile-device-lease#v0.1.2
-# Or: npm install --save-dev github:nick-cobra/agent-mobile-device-lease#v0.1.2
+pnpm add -D github:nick-cobra/agent-mobile-device-lease#v0.1.3
+# Or: npm install --save-dev github:nick-cobra/agent-mobile-device-lease#v0.1.3
 pnpm exec device-lease doctor --platform android
 ```
 

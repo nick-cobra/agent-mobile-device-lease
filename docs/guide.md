@@ -206,7 +206,9 @@ automation that can overlap successive runs, persist the token in that run's
 state and pass it on each operation. Do not recover an old run's token by reading
 the current lease record: that record could already describe its successor.
 
-The `exec` wrapper renews before starting its child and schedules renewal every
+The `exec` wrapper captures the acquisition token regardless of whether the
+caller supplied `--token`. It renews before starting its child and fences every
+subsequent heartbeat to that captured token. It schedules renewal every
 quarter of its configured TTL while that child runs. It uses asynchronous
 `spawn`, so the event loop can execute the heartbeat. A heartbeat next to a
 blocking `spawnSync` build would not run during the build.
@@ -219,11 +221,18 @@ outer `exec` wrapper can maintain the heartbeat:
 pnpm -s device:lease exec --platform android -- pnpm dev:android:local --port <web-port>
 ```
 
-**Current limitation:** if `exec` detects lost ownership during a child command,
-it reports failure after the child finishes; it does not immediately terminate
-the child. Transient heartbeat exceptions are retried on later beats. Projects
-needing immediate interruption should add explicit child cancellation and tests
-for that behaviour. Lease expiry alone cannot stop arbitrary device commands.
+A separate read-only check runs every second while the command is active. It
+does not wait for a heartbeat's mutation mutex. A changed owner/token/device,
+expired lease or unverifiable metadata triggers cancellation; renewal errors
+also stop the command. A final ownership check fences short commands' results.
+
+Cancellation captures observable descendant process groups with `ps`, signals
+them with `SIGTERM` and escalates to `SIGKILL` after 750 ms, even if the group
+leader exits first. It includes nested wrappers' separate SDK groups. Only
+groups belonging to the spawned command are signalled; no device shutdown or
+successor release is performed. See [the command reference](commands.md#execute-against-an-existing-lease)
+for host permission, scheduling, daemonisation and forced-termination limits.
+Lease expiry cannot stop unrelated, unwrapped device commands.
 
 ## Every consumer must target the leased device
 
