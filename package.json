@@ -1,6 +1,6 @@
 {
   "name": "agent-mobile-device-lease",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
   "description": "Shared Android emulator and iOS simulator leases for agent worktrees",
   "engines": {

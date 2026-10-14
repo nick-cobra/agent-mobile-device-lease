@@ -29,15 +29,20 @@ export function assertSdkTarget(argv, { platform, deviceId }) {
   let simctlIndex = executable === "simctl" ? 0 : -1;
   if (executable === "xcrun") {
     let i = 1;
+    let find = false, run = false;
     while (argv[i]?.startsWith("-")) {
       if (["--sdk", "-sdk", "--toolchain", "-toolchain"].includes(argv[i])) i += 2;
-      else if (["--run", "-r", "--verbose", "-v", "--log", "-l", "--no-cache", "-n"].includes(argv[i])) i++;
-      else if (["--find", "-f"].includes(argv[i])) return; // tool lookup only
+      else if (["--run", "-r"].includes(argv[i])) { run = true; i++; }
+      else if (["--find", "-f"].includes(argv[i])) { find = true; i++; }
+      else if (["--verbose", "-v", "--log", "-l", "--no-cache", "-n"].includes(argv[i])) i++;
       else {
         if (argv.includes("simctl")) throw new Error("Unsupported xcrun option; cannot verify its simctl target.");
         return;
       }
     }
+    // xcrun --find --run executes the tool; inspect the whole prefix before
+    // treating a command as a read-only executable lookup.
+    if (find && !run) return;
     if (argv[i] === "simctl") simctlIndex = i;
   }
   if (simctlIndex < 0) return;

@@ -88,3 +88,32 @@ builds or live devices. They do not establish every application's instrumentatio
 runner or screenshot state. The original real-device evidence above remains
 identified as the initial validation. Hosted Node 22/24 macOS/Linux CI provides
 separate platform evidence after publication.
+
+## Version 0.1.3 ownership-loss supervision
+
+All **214 tests passed** locally on Node 22.23.2, macOS, with no failures,
+skips or cancellations. The original 196 tests remain green, including live
+heartbeat renewal and offline personal/project packaged installations. The
+packaged CLI also executes a command through the new supervision helper and
+preserves its captured owner, device and token.
+
+Five process-level tests first failed against 0.1.2: owner transfer, same-owner
+successor token, expiry, a root/descendant ignoring SIGTERM, and loss before a
+short command returned success. Three additional baseline failures cover
+nested SIGINT/SIGTERM cleanup and loss while heartbeat renewal waits for the
+registry mutex. These regressions pass after implementation. Tests verify
+cessation of the recorded root and descendant PIDs within a five-second test
+budget, retention of successor metadata, and survival of an unrelated process.
+Missing/malformed metadata, restricted process inspection, ordinary output and
+nonzero child status are also checked.
+
+A separate RED confirmed that combined xcrun lookup/run options could bypass
+direct simulator selector validation. The final tests cover both option orders,
+long/short spellings, conflicting targets, and permitted owned-target/lookup use.
+
+These are real local subprocess tests with fake device capacity and disposable
+registries; they do not operate live emulators or simulators. One-second polling
+and 750 ms escalation are scheduling targets, not hard real-time guarantees.
+Already-dispatched SDK work, hidden daemonised processes and an uncatchable
+wrapper SIGKILL remain outside cancellation guarantees. Hosted Node 22/24
+macOS/Linux CI is checked separately before release.

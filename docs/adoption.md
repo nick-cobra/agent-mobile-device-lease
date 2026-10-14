@@ -8,7 +8,7 @@ application repository. Both paths use the same device protocol and registry.
 
 ## Personal: your agents on your Mac
 
-1. Install once with `npm install --global github:nick-cobra/agent-mobile-device-lease#v0.1.2`.
+1. Install once with `npm install --global github:nick-cobra/agent-mobile-device-lease#v0.1.3`.
 2. Ensure the global npm bin directory is on the agent process's PATH, not just an interactive terminal's PATH. Restart that process after changing PATH.
 3. Add the [personal standing rule](agent-instructions.md#personal-rule) to your agent client's personal instruction source. Do not replace existing instructions.
 4. Run `device-lease doctor --platform android` or `--platform ios`. Provide virtual-device capacity if needed.
@@ -31,7 +31,7 @@ behaviour. [Official Codex instruction discovery](https://learn.chatgpt.com/docs
 
 ## Project/team: a shared workflow
 
-1. Add the pinned release as a development dependency with `pnpm add -D github:nick-cobra/agent-mobile-device-lease#v0.1.2` (or npm's `--save-dev`). Commit the manifest and lockfile. For an immutable pin, use the release's full Git commit SHA instead of its tag.
+1. Add the pinned release as a development dependency with `pnpm add -D github:nick-cobra/agent-mobile-device-lease#v0.1.3` (or npm's `--save-dev`). Commit the manifest and lockfile. For an immutable pin, use the release's full Git commit SHA instead of its tag.
 2. Add the [project standing rule](agent-instructions.md#project-rule) to the application's instructions.
 3. Integrate the shared preview/install/test/capture launcher. Keep one captured device and acquisition token throughout the task.
 4. Configure every project and worktree sharing devices to use the same registry and pool prefix. Run `pnpm exec device-lease doctor --platform android` or `--platform ios`.

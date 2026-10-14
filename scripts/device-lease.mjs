@@ -20,6 +20,7 @@ import { makeArgReader } from "./lib/args.mjs";
 import { resolveOwner as resolveCallerOwner } from "./lib/owner.mjs";
 import { assertSdkTarget } from "./lib/sdk-target.mjs";
 import { doctorReport } from "./lib/doctor.mjs";
+import { runLeasedChild } from "./lib/run-leased-child.mjs";
 import {
   DEFAULT_TTL_MINUTES,
   DEFAULT_WAIT_SECONDS,
@@ -311,7 +312,7 @@ function dropOtherLeases(platform, owner, keepDeviceId) {
     }
   }
 }
-function renewLeaseIfOwned(platform, deviceId, owner, label) {
+function renewLeaseIfOwned(platform, deviceId, owner, label, tokenFence = expectedToken) {
   const renewDelayMs = Number(process.env.MOBILE_DEVICE_TEST_RENEW_DELAY_MS ?? 0);
   if (renewDelayMs > 0) sleep(renewDelayMs);
 
@@ -329,7 +330,7 @@ function renewLeaseIfOwned(platform, deviceId, owner, label) {
   if (
     meta?.owner !== owner ||
     isExpired(meta, now, ttlMs) ||
-    (expectedToken && meta.token !== expectedToken)
+    (tokenFence && meta.token !== tokenFence)
   )
     return false;
 
@@ -1028,43 +1029,29 @@ async function execWithLease() {
         "  device:lease exec --platform ios -- xcrun simctl io MOBILE_DEVICE screenshot shot.png",
     );
   }
-  const [command, ...rest] = substituted;
   assertSdkTarget(substituted, { platform, deviceId });
-  let renewalLost = false;
-
-  const heartbeat = setInterval(
-    async () => {
-      try {
-        const stillOurs = await withLeaseMutex(platform, () =>
-          renewLeaseIfOwned(platform, deviceId, owner, null),
-        );
-        if (!stillOurs) renewalLost = true;
-      } catch {
-      }
+  const metaFile = join(lockPath(platform, deviceId), "meta.json");
+  const { code, lost } = await runLeasedChild(substituted, {
+    env,
+    heartbeatMs: Math.floor(ttlMs / 4),
+    ownsLease: () => {
+      const meta = JSON.parse(readFileSync(metaFile, "utf8"));
+      return meta?.owner === owner && meta.deviceId === deviceId && meta.token === renewed &&
+        Number.isFinite(Date.parse(meta.expiresAt)) && Date.parse(meta.expiresAt) > Date.now();
     },
-    Math.floor(ttlMs / 4),
-  );
-
-  const status = await new Promise((resolvePromise) => {
-    const child = spawn(command, rest, { stdio: "inherit", env });
-    child.on("error", (error) => {
-      clearInterval(heartbeat);
-      fail(`Could not run ${command}: ${error.message}`);
-    });
-    child.on("close", (code, signal) => {
-      clearInterval(heartbeat);
-      resolvePromise(signal ? 1 : (code ?? 1));
-    });
+    renewLease: (active) => withLeaseMutex(platform, () =>
+      active() ? renewLeaseIfOwned(platform, deviceId, owner, null, renewed) : false,
+    ),
   });
 
-  if (renewalLost) {
+  if (lost) {
     fail(
       `This worktree's ${platform} lease on ${deviceId} was lost while the command ran, ` +
-        "so its result may have come from another worktree's device. Re-acquire and rerun.",
+        "so its command process group was stopped and its result rejected. Re-acquire and rerun.",
     );
   }
 
-  process.exit(status);
+  process.exit(code);
 }
 async function renewCommand() {
   const platform = requirePlatform();

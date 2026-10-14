@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.3
+
+- Stop owned command and observable descendant process groups on lease loss, with one-second checks and bounded TERM/KILL escalation.
+- Fence every execution heartbeat and final result to the captured acquisition token, including implicit-token calls.
+- Supervise nested wrapper groups on loss and interruption; preserve normal output, exit codes and successor metadata.
+- Close the direct `xcrun --find --run` selector-check bypass.
+- Document host process-inspection and daemonisation limits.
+
 ## 0.1.2
 
 - Offer personal and project/team adoption paths, standing rules and instruction-refresh guidance.
