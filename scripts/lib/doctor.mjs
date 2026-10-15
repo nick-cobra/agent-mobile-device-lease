@@ -1,7 +1,6 @@
-import { spawnSync } from "node:child_process";
 import { accessSync, constants, existsSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { androidTool, findExecutable } from "./sdk-tools.mjs";
+import { androidTool, findExecutable, probeSdk } from "./sdk-tools.mjs";
 import { DEFAULT_TTL_MINUTES, isExpired, isLocalEmulatorSerial, parseAdbDevices, parseAvdNames, parseSimctlIphones } from "./device-lease.mjs";
 import { readLeases } from "./device-lease-store.mjs";
 
@@ -20,12 +19,10 @@ export function doctorReport({ platform, leaseRoot, owner, avdPoolPrefix, iosFam
   } catch (error) { check("registry", false, error.message); }
 
   const probe = (name, path, args) => {
-    if (!path) { check(name, false, `Missing executable ${name}; check SDK installation and PATH`); return null; }
-    if (!args) { check(name, true, path); return ""; }
-    const result = spawnSync(path, args, { env, encoding: "utf8", timeout: 10000, maxBuffer: 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
-    if (result.status !== 0) { check(name, false, `${path}: ${result.error?.message ?? `command exited ${result.status}`}`); return null; }
-    check(name, true, path);
-    return result.stdout;
+    const result = probeSdk(name, path, args, env);
+    const { stdout, ...diagnostic } = result;
+    checks.push({ name, ...diagnostic, ...(!result.ok ? { stdout } : {}) });
+    return result.ok ? stdout : null;
   };
   let liveLeases = [];
   try {

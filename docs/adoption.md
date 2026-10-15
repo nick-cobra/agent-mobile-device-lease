@@ -8,7 +8,7 @@ application repository. Both paths use the same device protocol and registry.
 
 ## Personal: your agents on your Mac
 
-1. Install once with `npm install --global github:nick-cobra/agent-mobile-device-lease#v0.1.3`.
+1. Install once with `npm install --global github:nick-cobra/agent-mobile-device-lease#v0.1.4`.
 2. Ensure the global npm bin directory is on the agent process's PATH, not just an interactive terminal's PATH. Restart that process after changing PATH.
 3. Add the [personal standing rule](agent-instructions.md#personal-rule) to your agent client's personal instruction source. Do not replace existing instructions.
 4. Run `device-lease doctor --platform android` or `--platform ios`. Provide virtual-device capacity if needed.
@@ -31,7 +31,7 @@ behaviour. [Official Codex instruction discovery](https://learn.chatgpt.com/docs
 
 ## Project/team: a shared workflow
 
-1. Add the pinned release as a development dependency with `pnpm add -D github:nick-cobra/agent-mobile-device-lease#v0.1.3` (or npm's `--save-dev`). Commit the manifest and lockfile. For an immutable pin, use the release's full Git commit SHA instead of its tag.
+1. Add the pinned release as a development dependency with `pnpm add -D github:nick-cobra/agent-mobile-device-lease#v0.1.4` (or npm's `--save-dev`). Commit the manifest and lockfile. For an immutable pin, use the release's full Git commit SHA instead of its tag.
 2. Add the [project standing rule](agent-instructions.md#project-rule) to the application's instructions.
 3. Integrate the shared preview/install/test/capture launcher. Keep one captured device and acquisition token throughout the task.
 4. Configure every project and worktree sharing devices to use the same registry and pool prefix. Run `pnpm exec device-lease doctor --platform android` or `--platform ios`.
@@ -56,6 +56,25 @@ One registry per project is unsafe for overlapping pools. Existing managers
 also need compatible metadata and mutation locking; sharing a directory alone
 cannot make incompatible managers coordinate. Use the [migration checklist](integration.md#migrate-an-existing-lease-registry).
 
+## Decide when the session finishes
+
+Both adoption paths use the same [manual-session rule](../README.md#manual-testing-and-session-lifetime).
+Installation, UI checks and screenshots may finish while the user is still
+testing. Keep the lease across replies and while waiting for feedback; release
+only when the user finishes testing, requests release or switches devices,
+after outstanding device commands finish. Preserve the acquisition token.
+
+Use persistent `acquire` + `exec` for that workflow. `device-session` is for
+finite unattended work: it releases when its child exits, so a returning
+installer is the wrong session boundary for later human testing.
+
+Acquisition alone starts no idle renewal process. `exec` heartbeats only during
+its child. Check `device-lease list --json`, renew before expiry throughout idle
+periods, and report the actual deadline if no verified renewer is running. Do
+not promise an indefinite reservation. Project installs prefix these commands
+with `pnpm exec`. Copy the complete [personal or project standing rule](agent-instructions.md)
+so session lifetime and renewal guidance reach participating agents.
+
 ## What the wrapper protects
 
 This is cooperative ownership, not OS access control. Direct wrapped SDK calls
@@ -63,6 +82,6 @@ reject conflicting device selectors before starting. A shell command or an
 installer can still choose another device internally. Inspect and adapt those
 launchers; installing or wrapping them alone does not make their targeting safe.
 
-Keep the session alive through all installations, tests and screenshots. Finish
-background device work before returning from it. If capacity is held, wait or
+Keep the session alive through installations, tests, screenshots and manual
+testing. Finish background device work before release. If capacity is held, wait or
 provide more devices rather than using an unwrapped command or force release.

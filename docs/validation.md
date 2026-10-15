@@ -117,3 +117,34 @@ and 750 ms escalation are scheduling targets, not hard real-time guarantees.
 Already-dispatched SDK work, hidden daemonised processes and an uncatchable
 wrapper SIGKILL remain outside cancellation guarantees. Hosted Node 22/24
 macOS/Linux CI is checked separately before release.
+
+## Version 0.1.4 customer feedback
+
+All **234 tests passed** locally on Node 22.23.2, macOS, with no failures,
+skips or cancellations. The previous 214 tests remain green. Ten new CLI-level
+regressions first failed for missing SDK failure details/classification, absent
+structured status and missing renewal timestamps. Adapter discovery also failed
+against the previous implementation before the helper was added.
+
+The new checks cover explicit permission restrictions versus ambiguous SDK
+errors, missing executables, bounded stderr/stdout, valid shut-down leases,
+expiry, legacy renewal timestamps, absent devices and failed/invalid state
+queries. Registry bytes remain unchanged by status/doctor observations; a
+contender cannot claim the valid shut-down lease. Android offline and
+unauthorised states remain visible.
+
+Adapter checks exercise captured identity/registry/TTL despite later environment
+changes, stale successor tokens between operations, active ownership loss,
+SIGINT/SIGTERM cleanup of SDK processes ignoring signals, bounded captured output,
+binary fidelity and conflicting selectors/destinations. Offline tarball tests
+copy both Android and iOS examples outside the installed package and execute them
+from personal and project installations. The personal application gains no
+manifest; each manual workflow retains its lease after capture. Failed XCTest
+prevents later launch/capture. The project module import is also exercised.
+
+These checks use real local subprocesses, disposable registries, fake capacity
+and stub SDK/build commands. They do not prove a real application's XCTest
+configuration, live SDK permissions or human/agent compliance with manual testing
+instructions. Manual-session guidance does not add an idle background renewer,
+change TTL or prevent an explicit valid release. Hosted Node 22/24 macOS/Linux
+checks are verified separately before release.

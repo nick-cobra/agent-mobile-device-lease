@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.4
+
+- Keep manual testing and feedback across replies inside the documented session lifetime, with captured-token release only after the user finishes or switches devices.
+- Clarify persistent acquire + exec versus finite unattended device-session cleanup, and explain idle expiry and verified renewal in both copyable agent rules.
+- Include bounded SDK error output and distinguish missing commands, explicit permission restrictions, ordinary SDK failures, timeouts and output limits in doctor.
+- Add a reusable captured-identity adapter helper with asynchronous supervised SDK operations and copied Android/iOS install, test and capture examples.
+- Show remaining TTL, actual last renewal, expiry, owner and observed device state together in text/JSON status without changing ownership or reclaiming shut-down devices.
+- Preserve global personal adoption without application repository changes; test copied examples from both personal and project package installations.
+
 ## 0.1.3
 
 - Stop owned command and observable descendant process groups on lease loss, with one-second checks and bounded TERM/KILL escalation.

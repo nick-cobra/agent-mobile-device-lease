@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,5 +47,60 @@ test("offline personal and project installations coordinate through the same reg
     assert.equal(next.owner, await realpath(projectApp));
     assert.notEqual(next.token, lease.token);
     succeeds(invoke(projectCli, ["release", "--platform", "android", "--token", next.token], projectApp));
+
+    // Execute copied examples outside the package: global npm modules are not
+    // normally importable from a personal script's directory. The executing
+    // CLI supplies the installed helper URL, without adding app dependencies.
+    const bin = join(root, "sdk");
+    await mkdir(bin);
+    env.PATH = `${bin}:${env.PATH}`;
+    env.AMDL_CALL_LOG = join(root, "sdk-calls");
+    const sdk = `#!${process.execPath}
+const f=require('node:fs'), args=process.argv.slice(2);
+f.appendFileSync(process.env.AMDL_CALL_LOG, JSON.stringify({tool:require('node:path').basename(process.argv[1]),args})+'\\n');
+if(args.includes('instrument')) console.log('OK (1 test)');
+if(args.includes('exec-out')) process.stdout.write(Buffer.from([0,255,128,10]));
+if(args.includes('screenshot')) f.writeFileSync(args.at(-1),'ios-image');
+if(process.env.AMDL_TEST_FAILURE==='1' && args.includes('test-without-building')) process.exit(65);
+`;
+    for (const name of ["adb", "xcrun", "xcodebuild"]) await writeFile(join(bin, name), sdk, { mode: 0o755 });
+    for (const [installedCli, app, packageRoot, scope] of [
+      [personalCli, personalApp, join(personalPrefix, "lib/node_modules/agent-mobile-device-lease"), "personal"],
+      [projectCli, projectApp, join(projectApp, "node_modules/agent-mobile-device-lease"), "project"],
+    ]) {
+      for (const platform of ["android", "ios"]) {
+        env.MOBILE_DEVICE_FAKE_CAPACITY = platform === "android" ? "emulator-5554" : "SIM-OWNED";
+        const owned = JSON.parse(succeeds(invoke(installedCli, ["acquire", "--platform", platform, "--no-boot", "--wait-seconds", "0", "--json"], app)).stdout);
+        const example = join(root, `${scope}-${platform}-task.mjs`);
+        await copyFile(join(packageRoot, `examples/${platform}-personal-task.mjs`), example);
+        const shot = join(root, `${scope}-${platform}.png`);
+        const args = platform === "android" ? ["app.apk", "tests.apk", "com.example.app.test/Runner", shot] : ["Example.app", "Tests.xctestrun", "com.example.app", shot];
+        succeeds(invoke(installedCli, ["exec", "--platform", platform, "--token", owned.token, "--", process.execPath, example, ...args], app));
+        assert.deepEqual(await readFile(shot), platform === "android" ? Buffer.from([0,255,128,10]) : Buffer.from("ios-image"));
+        const meta = JSON.parse(await readFile(join(env.MOBILE_DEVICE_LEASE_DIR, platform, `${owned.deviceId}.lock/meta.json`), "utf8"));
+        assert.equal(meta.token, owned.token, "manual workflow retains the captured lease after screenshots");
+        if (platform === "ios") {
+          env.AMDL_TEST_FAILURE = "1";
+          await rm(shot);
+          const failed = invoke(installedCli, ["exec", "--platform", platform, "--token", owned.token, "--", process.execPath, example, ...args], app);
+          assert.notEqual(failed.status, 0);
+          assert.equal(existsSync(shot), false, "failed XCTest must prevent later launch/capture");
+          delete env.AMDL_TEST_FAILURE;
+        } else if (scope === "project") {
+          const imported = succeeds(invoke(installedCli, ["exec", "--platform", platform, "--", process.execPath, "--input-type=module", "-e", 'import {captureDevice} from "agent-mobile-device-lease/scripts/lib/adapter.mjs"; console.log(captureDevice().identity.deviceId)'], app));
+          assert.equal(imported.stdout.trim(), owned.deviceId);
+        }
+        succeeds(invoke(installedCli, ["release", "--platform", platform, "--token", owned.token], app));
+      }
+    }
+    const calls = (await readFile(env.AMDL_CALL_LOG, "utf8")).trim().split("\n").map(JSON.parse);
+    for (const call of calls) {
+      if (call.tool === "adb") assert.deepEqual(call.args.slice(0,2), ["-s", "emulator-5554"]);
+      if (call.tool === "xcodebuild") {
+        assert.ok(call.args.includes("platform=iOS Simulator,id=SIM-OWNED"));
+        assert.deepEqual(call.args.slice(-2), ["-parallel-testing-enabled", "NO"]);
+      }
+    }
+    assert.equal(existsSync(join(personalApp, "package.json")), false);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
