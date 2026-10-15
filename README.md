@@ -45,20 +45,27 @@ No checkout of this tool repository is required.
 For personal use, install once and then add the [personal agent rule](docs/agent-instructions.md):
 
 ```sh
-npm install --global github:nick-cobra/agent-mobile-device-lease#v0.1.4
+npm install --global github:nick-cobra/agent-mobile-device-lease#v0.1.5
 device-lease doctor --platform android
+device-lease adoption-check --scope personal
 ```
 
 For a project/team workflow, install in the application and commit its lockfile:
 
 ```sh
-pnpm add -D github:nick-cobra/agent-mobile-device-lease#v0.1.4
-# Or: npm install --save-dev github:nick-cobra/agent-mobile-device-lease#v0.1.4
+pnpm add -D github:nick-cobra/agent-mobile-device-lease#v0.1.5
+# Or: npm install --save-dev github:nick-cobra/agent-mobile-device-lease#v0.1.5
 pnpm exec device-lease doctor --platform android
+pnpm exec device-lease adoption-check --scope project
 ```
 
 For iOS, use `--platform ios`. A doctor's nonzero result lists missing
 prerequisites or absent capacity. It never boots, provisions or claims a device.
+
+The package includes a copyable [personal skill template](docs/personal-skill.md)
+alongside the standing rules. The read-only [adoption check](docs/commands.md#inspect-adoption)
+reports the running version, registry, instruction locations and declared launchers.
+It does not prove an agent loaded a rule or that a launcher respects the device pin.
 
 When upgrading, also merge the updated [standing rule](docs/agent-instructions.md)
 into your personal or project instructions. Updating the CLI does not refresh
@@ -221,6 +228,7 @@ registries.
 - [Project integration](docs/integration.md) covers launchers and migration.
 - [Design guide](docs/guide.md) explains persistence, concurrency and expiry.
 - [Agent instructions](docs/agent-instructions.md) includes personal and project standing rules.
+- [Personal skill](docs/personal-skill.md) explains the packaged reusable template.
 - [Validation](docs/validation.md) records checks and their limits.
 
 To contribute, clone the tool repository and run `npm test`. The tests use

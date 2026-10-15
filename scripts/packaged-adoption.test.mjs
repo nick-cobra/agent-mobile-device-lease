@@ -28,6 +28,27 @@ test("offline personal and project installations coordinate through the same reg
     succeeds(invoke("npm", ["install", "--offline", "--prefix", projectApp, "--save-dev", "--ignore-scripts", "--no-audit", "--no-fund", tarball]));
     const personalCli = join(personalPrefix, "bin/device-lease");
     const projectCli = join(projectApp, "node_modules/.bin/device-lease");
+    const expectedVersion = JSON.parse(await readFile(join(source, "package.json"), "utf8")).version;
+    for (const [installedCli, app, packageRoot, scope] of [
+      [personalCli, personalApp, join(personalPrefix, "lib/node_modules/agent-mobile-device-lease"), "personal"],
+      [projectCli, projectApp, join(projectApp, "node_modules/agent-mobile-device-lease"), "project"],
+    ]) {
+      const config = join(root, `${scope}-adoption.json`);
+      const skill = join(packageRoot, "examples/skills/mobile-device-lease/SKILL.md");
+      await writeFile(config, JSON.stringify({ version: 1, instructions: [skill], launchers: [{ platform: "ios", path: join(packageRoot, "examples/ios-personal-task.mjs") }] }));
+      const report = JSON.parse(succeeds(invoke(installedCli, ["adoption-check", "--scope", scope, "--config", config, "--json"], app)).stdout);
+      assert.equal(report.installation.version, expectedVersion);
+      assert.equal(await realpath(report.installation.packageRoot), await realpath(packageRoot));
+      assert.equal(report.registry, env.MOBILE_DEVICE_LEASE_DIR);
+      assert.equal(report.owner, await realpath(app));
+      assert.equal(report.instructions[0].status, "present");
+      assert.equal(report.launchers[0].status, "present");
+      assert.equal(report.agentLoading, "unverified");
+      assert.equal(report.launchers[0].targeting, "unverified");
+      const copiedSkill = join(root, `${scope}-skill/SKILL.md`);
+      await mkdir(dirname(copiedSkill)); await copyFile(skill, copiedSkill);
+      assert.equal(await readFile(copiedSkill, "utf8"), await readFile(skill, "utf8"));
+    }
     const acquisition = ["acquire", "--platform", "android", "--no-boot", "--wait-seconds", "0", "--json"];
     const lease = JSON.parse(succeeds(invoke(personalCli, acquisition, personalApp)).stdout);
     assert.equal(lease.owner, await realpath(personalApp));
