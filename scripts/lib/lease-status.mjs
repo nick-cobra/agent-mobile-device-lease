@@ -37,12 +37,18 @@ export function leaseStatus({ leaseRoot, platforms, env = process.env, nowMs = D
       let expiry = Date.parse(lease.expiresAt ?? "");
       if (!Number.isFinite(expiry)) expiry = Date.parse(lease.acquiredAt ?? "") + fallbackTtlMs;
       const renewed = Date.parse(lease.lastRenewedAt ?? "");
+      const stamp = Date.parse(lease.acquiredAt ?? "");
+      const claimed = Date.parse(lease.claimedAt ?? "");
+      // Older clients advance acquiredAt but preserve unfamiliar fields. Do
+      // not present their retained lastRenewedAt/null as the latest renewal.
+      const renewalKnown = Number.isFinite(renewed) && renewed === stamp ||
+        lease.lastRenewedAt === null && Number.isFinite(claimed) && claimed === stamp;
       leases.push({ platform, deviceId: lease.deviceId, owner: lease.owner, label: lease.label ?? null,
         expiresAt: Number.isFinite(expiry) ? new Date(expiry).toISOString() : null,
         remainingTtlSeconds: Number.isFinite(expiry) ? Math.max(0, Math.ceil((expiry - nowMs) / 1000)) : null,
         expired: isExpired(lease, nowMs, fallbackTtlMs),
-        lastRenewedAt: Number.isFinite(renewed) ? new Date(renewed).toISOString() : null,
-        renewalKnown: lease.lastRenewedAt === null || Number.isFinite(renewed),
+        lastRenewedAt: renewalKnown && Number.isFinite(renewed) ? new Date(renewed).toISOString() : null,
+        renewalKnown,
         deviceState: observed.devices === null ? { availability: "unavailable", state: null }
           : observed.devices.has(lease.deviceId) ? { availability: "present", state: observed.devices.get(lease.deviceId) }
           : { availability: "absent", state: null } });

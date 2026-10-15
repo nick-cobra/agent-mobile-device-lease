@@ -288,6 +288,7 @@ function claim(platform, deviceId, owner, label) {
     label: label ?? null,
     ...physicalLeaseMarker({ allowPhysical, deviceId }),
     acquiredAt: new Date(now).toISOString(),
+    claimedAt: new Date(now).toISOString(),
     lastRenewedAt: null,
     expiresAt: new Date(now + ttlMs).toISOString(),
   };

@@ -120,7 +120,7 @@ macOS/Linux CI is checked separately before release.
 
 ## Version 0.1.4 customer feedback
 
-All **235 tests passed** locally on Node 22.23.2, macOS, with no failures,
+All **236 tests passed** locally on Node 22.23.2, macOS, with no failures,
 skips or cancellations. The previous 214 tests remain green. Ten new CLI-level
 regressions first failed for missing SDK failure details/classification, absent
 structured status and missing renewal timestamps. Adapter discovery also failed
@@ -131,7 +131,9 @@ errors, missing executables, bounded stderr/stdout, valid shut-down leases,
 expiry, legacy renewal timestamps, absent devices and failed/invalid state
 queries. Registry bytes remain unchanged by status/doctor observations; a
 contender cannot claim the valid shut-down lease. Android offline and
-unauthorised states remain visible.
+unauthorised states remain visible. A separate RED reproduced a stale renewal
+label after an older compatible client advanced the legacy stamp; inconsistent
+renewal fields now report unknown while retaining the authoritative expiry.
 
 Adapter checks exercise captured identity/registry/TTL despite later environment
 changes, stale successor tokens between operations, active ownership loss,

@@ -57,6 +57,8 @@ the inventory and `--json` for structured stdout. Text inventory uses stderr.
 New leases show `not-yet` before their first renewal; pre-0.1.4 records without
 a renewal timestamp show `unknown-legacy`. Expired records stay visible with
 zero remaining TTL; invalid expiry information is reported as unknown.
+If an older client renews a newer record without updating its renewal field,
+status also reports that timestamp as unknown. Stored expiry is still shown.
 
 Status reads metadata and runs bounded SDK inventory queries. It does not claim,
 renew, release, boot or reclaim devices. JSON distinguishes `present`, `absent`

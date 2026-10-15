@@ -76,6 +76,7 @@ An illustrative lease record is:
   "token": "unique-acquisition-uuid",
   "label": "task-a visual review",
   "acquiredAt": "2026-10-14T00:00:00.000Z",
+  "claimedAt": "2026-10-14T00:00:00.000Z",
   "lastRenewedAt": null,
   "expiresAt": "2026-10-14T04:00:00.000Z"
 }
@@ -145,7 +146,10 @@ that shuts down a device when its lease expires.
 `lastRenewedAt` starts null on a new claim and records each actual renewal in
 UTC. Older records without that field have an unknown last-renewal timestamp;
 status does not invent one. The existing `acquiredAt` renewal stamp remains for
-compatibility with older clients. Stored expiry remains authoritative.
+compatibility with older clients. New records also retain `claimedAt` so status
+can distinguish an unrenewed claim from a renewal by a client unaware of the new
+field. Inconsistent renewal stamps are shown as unknown. Stored expiry remains
+authoritative.
 
 Acquisition tokens distinguish successive claims, including successive runs
 with the same owner. `renew`, `exec` and `release` validate a token when supplied

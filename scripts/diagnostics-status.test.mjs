@@ -125,6 +125,22 @@ test("renewal records its actual timestamp; old metadata does not invent one", (
   assert.equal(old.lastRenewedAt, null);
   assert.equal(old.renewalKnown, false);
 }));
+test("a renewal by an older client cannot leave a falsely current last-renewal label", () => fixture(async f => {
+  await f.acquire();
+  await f.inventory([]);
+  const original=JSON.parse(await readFile(f.meta,"utf8"));
+  for(const last of [null,original.acquiredAt]) {
+    // Older compatible clients preserve unknown fields but advance acquiredAt
+    // and expiresAt, without updating the new lastRenewedAt field.
+    const legacyRenewed={...original,lastRenewedAt:last,acquiredAt:new Date(Date.parse(original.acquiredAt)+1000).toISOString()};
+    await writeFile(f.meta,JSON.stringify(legacyRenewed));
+    const r=await run(["list","--platform","ios","--json"],f.env);
+    const lease=JSON.parse(r.stdout).leases[0];
+    assert.equal(lease.renewalKnown,false);
+    assert.equal(lease.lastRenewedAt,null);
+    assert.equal(await readFile(f.meta,"utf8"),JSON.stringify(legacyRenewed));
+  }
+}));
 for (const state of ["offline", "unauthorized"]) test(`Android status preserves ${state} observations`, () => fixture(async f => {
   await mkdir(join(f.registry, "android/emulator-5554.lock"), { recursive: true });
   const path = join(f.registry, "android/emulator-5554.lock/meta.json");
