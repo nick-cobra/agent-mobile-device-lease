@@ -20,6 +20,7 @@ import { makeArgReader } from "./lib/args.mjs";
 import { resolveOwner as resolveCallerOwner } from "./lib/owner.mjs";
 import { assertSdkTarget } from "./lib/sdk-target.mjs";
 import { doctorReport } from "./lib/doctor.mjs";
+import { leaseStatus, formatTtl } from "./lib/lease-status.mjs";
 import { runLeasedChild } from "./lib/run-leased-child.mjs";
 import {
   DEFAULT_TTL_MINUTES,
@@ -28,7 +29,6 @@ import {
   androidRecoveryDecision,
   assessAndroidDeviceHealth,
   bootableAvdCandidates,
-  formatAge,
   formatExportLines,
   isExpired,
   isPlatform,
@@ -288,6 +288,8 @@ function claim(platform, deviceId, owner, label) {
     label: label ?? null,
     ...physicalLeaseMarker({ allowPhysical, deviceId }),
     acquiredAt: new Date(now).toISOString(),
+    claimedAt: new Date(now).toISOString(),
+    lastRenewedAt: null,
     expiresAt: new Date(now + ttlMs).toISOString(),
   };
   writeFileSync(join(dir, "meta.json"), `${JSON.stringify(meta, null, 2)}\n`);
@@ -338,6 +340,7 @@ function renewLeaseIfOwned(platform, deviceId, owner, label, tokenFence = expect
     ...meta,
     label: label ?? meta.label ?? null,
     acquiredAt: new Date(now).toISOString(),
+    lastRenewedAt: new Date(now).toISOString(),
     expiresAt: new Date(now + ttlMs).toISOString(),
   };
   const stagingFile = `${metaFile}.renewing-${randomUUID()}`;
@@ -999,6 +1002,10 @@ async function execWithLease() {
         `  device-lease acquire --platform ${platform}`,
     );
   }
+  const capturedDevice = argValue("--device", undefined);
+  if (capturedDevice && capturedDevice !== deviceId) {
+    fail(`The captured device ${capturedDevice} does not match this owner's leased device ${deviceId}; command not started.`);
+  }
   const renewed = await withLeaseMutex(platform, () =>
     renewLeaseIfOwned(platform, deviceId, owner, argValue("--label", undefined)),
   );
@@ -1012,6 +1019,8 @@ async function execWithLease() {
 
   const env = { ...process.env };
   env.MOBILE_DEVICE_OWNER = owner;
+  env.MOBILE_DEVICE_TTL_MINUTES = String(ttlMinutes);
+  env.MOBILE_DEVICE_ADAPTER_MODULE = new URL("./lib/adapter.mjs", import.meta.url).href;
   for (const line of formatExportLines({ platform, deviceId, token: renewed, compatPrefix })) {
     const index = line.indexOf("=");
     env[line.slice(0, index)] = line
@@ -1111,19 +1120,23 @@ async function recoverCommand() {
 }
 
 function list() {
-  const nowMs = Date.now();
-  for (const platform of PLATFORMS) {
-    const leases = readLeases(platform);
+  const report = leaseStatus({ leaseRoot, platforms: platformArg ? [requirePlatform()] : PLATFORMS, fallbackTtlMs: ttlMs });
+  if (hasArg("--json")) { process.stdout.write(`${JSON.stringify(report)}\n`); return; }
+  for (const platform of Object.keys(report.observations)) {
+    const leases = report.leases.filter(lease => lease.platform === platform);
     log(`\n${platform}:`);
     if (leases.length === 0) {
       log("  (no leases)");
       continue;
     }
     for (const lease of leases) {
-      const state = isExpired(lease, nowMs, ttlMs) ? " EXPIRED" : "";
-      log(`  ${lease.deviceId}  age=${formatAge(lease, nowMs)}${state}  owner=${lease.owner}`);
+      const state = lease.expired ? " EXPIRED" : "";
+      const renewal = lease.lastRenewedAt ?? (lease.renewalKnown ? "not-yet" : "unknown-legacy");
+      log(`  ${lease.deviceId}${state}  ttl=${formatTtl(lease.remainingTtlSeconds)}  last-renewed=${renewal}  device=${lease.deviceState.state ?? lease.deviceState.availability}  owner=${lease.owner}  expires=${lease.expiresAt ?? "unknown"}`);
     }
+    if (!report.observations[platform].ok) log(`  State query unavailable: ${report.observations[platform].detail}`);
   }
+  log("Device shutdown or absence does not end a valid lease; ownership and expiry remain authoritative.");
 }
 try {
   switch (command) {
@@ -1165,7 +1178,7 @@ try {
           "  exec     run a command with this worktree's lease in its environment\n" +
           "  renew    push this worktree's lease expiry out and print the device\n" +
           "  recover  clear a system failure or restart only this worktree's leased virtual device\n" +
-          "  list     show every lease with age and owner\n" +
+          "  list     show lease TTL, last renewal, device state and owner (or --json)\n" +
           "  doctor   check SDK prerequisites, registry and visible capacity without claiming",
       );
   }

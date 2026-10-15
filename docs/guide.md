@@ -39,80 +39,32 @@ These project examples use the optional package-script aliases shown below.
 Without aliases, use `pnpm exec device-lease`; personal installations use
 `device-lease` directly. The lease engines stay in the installed library.
 
-### Android
+Use the [Android and iOS manual-session examples](../README.md#manual-testing-and-session-lifetime)
+for persistent acquisition, captured-token commands, status, renewal and release.
+A session includes human testing and waiting for feedback across replies; an
+installer or screenshot completing does not finish it. Release only when the
+user finishes, requests release or switches devices, after all device commands
+finish. Keep the lease renewed before expiry throughout idle periods.
 
-```sh
-# Acquire a device before building or interacting with the UI.
-pnpm -s device:lease acquire --platform android
+Acquisition starts no idle renewer. `exec` maintains a heartbeat only while its
+child runs. Report the actual expiry if no verified renewal process is running.
+`device-session` releases on child exit and suits finite unattended work whose
+whole device lifecycle ends there.
 
-# Replace <web-port> with the port printed by the local server.
-pnpm dev:android:local --port <web-port>
+`simctl` needs the captured UDID as an explicit device operand; an environment
+variable alone does not select its target. Use `MOBILE_DEVICE` under the wrapper;
+`booted` is refused because it can select another worktree's simulator.
 
-# The wrapper injects the leased Android serial into the child process.
-pnpm -s device:lease exec --platform android -- adb shell input tap 540 1200
-pnpm -s device:lease exec --platform android -- adb exec-out screencap -p > shot.png
+Project-specific preview launchers must honour the captured identity and token
+internally. See the [adapter helper and Android/iOS examples](integration.md#reuse-the-adapter-helper).
+Select the application's local backend deliberately and document any launcher
+port defaults; the library does not configure those application commands.
 
-# Release after the entire device session is finished.
-pnpm -s device:lease release --platform android
-```
+`list` reports remaining TTL, expiry, last renewal, observed device state and
+owner to stderr, or structured stdout with `--json`. It never renews or reclaims.
+Shutdown after a restart does not finish a valid lease. Query failure is distinct
+from absence in a successful inventory. See [status and renewal](commands.md#lease-status-and-idle-renewal).
 
-### iOS
-
-```sh
-pnpm -s device:lease acquire --platform ios
-pnpm dev:ios:local --port <web-port>
-
-# MOBILE_DEVICE is replaced with the leased simulator UDID.
-pnpm -s device:lease exec --platform ios -- xcrun simctl io MOBILE_DEVICE screenshot shot.png
-
-pnpm -s device:lease release --platform ios
-```
-
-`simctl` needs an explicit device operand; an environment variable alone does
-not select its target. The wrapper rejects a literal `booted` operand because
-it can resolve to another worktree's simulator.
-
-The `dev:*:local` commands above represent project-specific adapters. Implement
-them with the lease checks described below. Select the local backend deliberately
-and document how each launcher behaves when `--port` is omitted.
-
-Useful management commands:
-
-```sh
-pnpm -s device:lease list
-pnpm -s device:lease renew --platform android
-pnpm -s device:lease recover --platform android
-pnpm -s device:lease recover --platform ios
-
-# Without --platform, release checks both platforms for this owner.
-pnpm -s device:lease release
-```
-
-`list` reports device, age, owner and expired state to stderr. `acquire` prints
-shell-compatible assignments to stdout, including the device ID and acquisition
-token. Ordinary separate-shell use does not require evaluating those assignments.
-
-## Why ownership lives on disk
-
-Agent tool calls often start a fresh shell. An `export ANDROID_SERIAL=...` in one
-call will not necessarily exist in the next. Recording ownership only in shell
-variables therefore leaves the launcher free to select a different device.
-
-Store leases outside the repository:
-
-```text
-$XDG_STATE_HOME/shared-mobile/device-leases/
-  android/
-    .lease-op.sock
-    emulator-5554.lock/
-      meta.json
-  ios/
-    .lease-op.sock
-    <simulator-udid>.lock/
-      meta.json
-```
-
-When `XDG_STATE_HOME` is unset, its base is `~/.local/state`.
 `MOBILE_DEVICE_LEASE_DIR` overrides the entire lease root.
 
 An illustrative lease record is:
@@ -124,6 +76,8 @@ An illustrative lease record is:
   "token": "unique-acquisition-uuid",
   "label": "task-a visual review",
   "acquiredAt": "2026-10-14T00:00:00.000Z",
+  "claimedAt": "2026-10-14T00:00:00.000Z",
+  "lastRenewedAt": null,
   "expiresAt": "2026-10-14T04:00:00.000Z"
 }
 ```
@@ -189,6 +143,14 @@ Expiry comes from the holder's stored `expiresAt`. A contender's shorter
 performed when acquisition scans the registry; there is no background daemon
 that shuts down a device when its lease expires.
 
+`lastRenewedAt` starts null on a new claim and records each actual renewal in
+UTC. Older records without that field have an unknown last-renewal timestamp;
+status does not invent one. The existing `acquiredAt` renewal stamp remains for
+compatibility with older clients. New records also retain `claimedAt` so status
+can distinguish an unrenewed claim from a renewal by a client unaware of the new
+field. Inconsistent renewal stamps are shown as unknown. Stored expiry remains
+authoritative.
+
 Acquisition tokens distinguish successive claims, including successive runs
 with the same owner. `renew`, `exec` and `release` validate a token when supplied
 through `--token` or `MOBILE_DEVICE_TOKEN`. This prevents an old run's cleanup from
@@ -201,8 +163,8 @@ pnpm -s device:lease acquire --platform android --device emulator-5556
 # Refuse reuse if this owner already has a live lease on the platform.
 pnpm -s device:lease acquire --platform android --exclusive
 
-# Replace <acquisition-token> with the token returned by acquire.
-pnpm -s device:lease release --platform android --token <acquisition-token>
+# Only after the manual-session release condition is met; use the captured token.
+pnpm -s device:lease release --platform android --token '<captured-token>'
 ```
 
 Token checks are optional in the ordinary checkout-based CLI workflow. For
@@ -217,9 +179,8 @@ quarter of its configured TTL while that child runs. It uses asynchronous
 `spawn`, so the event loop can execute the heartbeat. A heartbeat next to a
 blocking `spawnSync` build would not run during the build.
 
-The reference preview launchers use synchronous build commands. They renew at startup
-and recheck ownership before installation. For a long build or recording, the
-outer `exec` wrapper can maintain the heartbeat:
+Application preview launchers must preserve the captured identity internally.
+For a long build or recording, the outer `exec` wrapper maintains the heartbeat:
 
 ```sh
 pnpm -s device:lease exec --platform android -- pnpm dev:android:local --port <web-port>
@@ -409,35 +370,9 @@ Consumers do not need a tool-repository checkout. Test the application's
 installation, launch, testing and capture flow as described in
 [Integration](integration.md#prove-application-integration).
 
-## An agent instruction block to reuse
+## Agent instructions to reuse
 
-For project/team adoption, add this to the application's `AGENTS.md` after the
-installed commands and launchers have been integrated. For personal adoption,
-use the [personal rule](agent-instructions.md#personal-rule) instead:
-
-```md
-### Shared mobile devices
-
-Each independent agent uses a separate Git worktree.
-
-Before building for, installing on, or interacting with an Android emulator or
-iOS simulator, acquire the worktree's lease:
-
-- Android: pnpm -s device:lease acquire --platform android
-- iOS: pnpm -s device:lease acquire --platform ios
-
-Use the project's lease-aware preview launcher. For raw device commands, use
-pnpm -s device:lease exec --platform <android|ios> -- <command>.
-Use MOBILE_DEVICE as the simulator operand; do not use booted.
-
-Keep the lease through installation, interaction and evidence capture. Renew
-before a long session or use the exec wrapper to maintain a heartbeat. Release
-only after all commands using the device have finished.
-
-If capacity is full, wait or provision more devices. Do not take another
-worktree's device, use force overrides, or shut down/reset the whole pool.
-Recover only the leased virtual device. Keep application crashes as evidence.
-
-All projects sharing devices must use the same lease registry. Do not rely on
-shell exports persisting between agent tool calls.
-```
+Copy the complete [personal or project standing rule](agent-instructions.md)
+for your adoption scope. Both include session lifetime, manual testing across
+replies, captured-token release and honest idle-renewal instructions. Keep the
+application's build, backend and login details in its own adapter or guide.

@@ -10,9 +10,7 @@ aliases or `node scripts/<entry>.mjs`.
 device-lease acquire --platform android
 device-lease acquire --platform ios
 device-lease list
-device-lease renew --platform android
-device-lease release --platform android
-device-lease release
+device-lease list --platform ios --json
 ```
 
 | Option | Effect |
@@ -51,6 +49,49 @@ boot attempt can take up to 180 seconds, so `--wait-seconds` is not a strict
 overall wall-clock limit. Use `--no-boot` with zero wait for an immediate capacity
 decision. Each registry mutation has a 60-second mutex wait.
 
+## Lease status and idle renewal
+
+`device-lease list` shows each recorded lease's owner, remaining TTL, expiry,
+last renewal and observed device state. Use `--platform android|ios` to narrow
+the inventory and `--json` for structured stdout. Text inventory uses stderr.
+New leases show `not-yet` before their first renewal; pre-0.1.4 records without
+a renewal timestamp show `unknown-legacy`. Expired records stay visible with
+zero remaining TTL; invalid expiry information is reported as unknown.
+If an older client renews a newer record without updating its renewal field,
+status also reports that timestamp as unknown. Stored expiry is still shown.
+
+Status reads metadata and runs bounded SDK inventory queries. It does not claim,
+renew, release, boot or reclaim devices. JSON distinguishes `present`, `absent`
+from a successful inventory, and `unavailable` when a query fails or is invalid.
+Failure details remain in `observations`. A shut-down virtual device can still
+have a valid lease after a restart. Device state does not prove its owner has
+finished; stored ownership and expiry remain authoritative.
+
+Acquiring a lease does **not** start a background renewer. `exec` renews only
+before and during its child. For a manual session, keep the lease during user
+testing and feedback across replies, and renew before its stored deadline:
+
+```sh
+device-lease renew --platform android --token '<captured-token>'
+```
+
+Use `--platform ios` for iOS. Pass the same `--ttl-minutes` on renew/exec when
+using a custom lifetime; otherwise those commands use the default 240 minutes.
+Claim automatic idle renewal only after starting and verifying a real renewer.
+Otherwise report the actual expiry and arrange renewal before it. If ownership
+expires or is lost, stop device commands and resolve ownership before continuing.
+
+**Only when the user finishes testing, requests release or switches devices**,
+and all device commands finish, release the captured acquisition generation:
+
+```sh
+device-lease release --platform android --token '<captured-token>'
+```
+
+Installation, a screenshot and the end of an agent turn do not meet that release
+condition. A finite unattended session can release when its complete device work
+finishes. See [standing agent rules](agent-instructions.md).
+
 ## Execute against an existing lease
 
 ```sh
@@ -60,7 +101,11 @@ device-lease exec --platform ios -- xcrun simctl io MOBILE_DEVICE screenshot sho
 
 The wrapper renews before starting the command and heartbeats at a quarter of
 its configured TTL. Use the same `--ttl-minutes` when intentionally using a
-custom lifetime. It propagates the child command's exit status.
+custom lifetime. The heartbeat ends when the child finishes; the lease remains
+recorded until release or expiry. It propagates the child command's exit status.
+For adapters, `exec --device <captured-id>` also requires the owner's current
+device to match before renewal or child startup; combine it with `--token` to
+fence both identity and generation.
 
 `MOBILE_DEVICE` can appear as a whole argument or a placeholder in a value such
 as `target=MOBILE_DEVICE`. Variable names such as `MOBILE_DEVICE_LEASE_DIR` are
@@ -100,6 +145,10 @@ the protocol. Do not release or force-transfer a device during active work.
 
 ## Run an automatic device session
 
+Use this only for finite unattended work whose whole device lifecycle finishes
+inside the child. For installation followed by human testing, use persistent
+`acquire` + `exec` and the [manual-session rule](../README.md#manual-testing-and-session-lifetime).
+
 ```sh
 device-session --platform android -- adb shell getprop sys.boot_completed
 ```
@@ -109,6 +158,7 @@ The session wrapper accepts `--device`, `--owner`, `--label`, `--ttl-minutes`,
 the child under the execution heartbeat and releases using the captured token.
 An existing same-owner lease is left untouched. Child failure still triggers
 cleanup. Abrupt process termination can leave a lease until expiry.
+Automatic release follows child exit; it does not wait for later user feedback.
 
 ## Serialise a heavy build
 
@@ -165,6 +215,13 @@ capacity return nonzero. Held capacity is
 reported separately; waiting for a lease is normal. The provisioner names a
 missing `avdmanager` executable rather than suggesting a device-profile error.
 
+Failed SDK probes include bounded stderr/stdout, exit status and a diagnostic
+kind in text/JSON output. `missing-executable` identifies installation/PATH
+problems; `permission-restriction` requires explicit permission-denied evidence.
+An ambiguous service error stays `sdk-failure`, not a guessed sandbox diagnosis.
+Timeout and output-limit failures are identified separately. Check the SDK's
+actual error and the environment's service access before changing installation.
+
 ## Recover the owned virtual device
 
 ```sh
@@ -207,6 +264,8 @@ an application adapter must map its inputs to the neutral variables explicitly.
 | `MOBILE_DEVICE_OWNER` | Override the default caller checkout identity |
 | `MOBILE_DEVICE_PLATFORM` | Default platform for commands other than unrestricted release |
 | `MOBILE_DEVICE_TOKEN` | Optional acquisition-generation fence |
+| `MOBILE_DEVICE_ADAPTER_MODULE` | Installed adapter helper module URL supplied to wrapped children |
+| `MOBILE_DEVICE_TTL_MINUTES` | Configured TTL supplied to wrapped children for nested adapter operations |
 | `MOBILE_APP_PACKAGES` | Comma-separated Android application package IDs to preserve during recovery |
 | `MOBILE_APP_PACKAGE_PREFIXES` | Comma-separated protected Android application package families |
 | `MOBILE_AVD_POOL_PREFIX` | Android pool prefix shared by provisioning and allocation |
