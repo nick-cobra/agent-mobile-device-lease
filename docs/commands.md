@@ -101,6 +101,9 @@ The wrapper renews before starting the command and heartbeats at a quarter of
 its configured TTL. Use the same `--ttl-minutes` when intentionally using a
 custom lifetime. The heartbeat ends when the child finishes; the lease remains
 recorded until release or expiry. It propagates the child command's exit status.
+For adapters, `exec --device <captured-id>` also requires the owner's current
+device to match before renewal or child startup; combine it with `--token` to
+fence both identity and generation.
 
 `MOBILE_DEVICE` can appear as a whole argument or a placeholder in a value such
 as `target=MOBILE_DEVICE`. Variable names such as `MOBILE_DEVICE_LEASE_DIR` are

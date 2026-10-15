@@ -111,6 +111,15 @@ test("iOS helper pins simctl and XCTest destinations and rejects an overriding d
   }
 },"ios"));
 
+test("a mismatched captured device cannot redirect XCTest using a valid owner token", () => fixture(async f => {
+  f.capturedEnv.MOBILE_DEVICE_ID = "SIM-OTHER";
+  f.capturedEnv.IOS_SIMULATOR = "SIM-OTHER";
+  const r=await f.program('await captureDevice().xcodebuild(["test-without-building","-xctestrun","Tests.xctestrun"]);').done;
+  assert.notEqual(r.code,0);
+  assert.match(r.stderr,/captured device|device.*match/i);
+  assert.equal(existsSync(f.env.AMDL_CALL_LOG),false);
+},"ios"));
+
 for (const signal of ["SIGINT", "SIGTERM"]) {
   test(`adapter forwards ${signal} and waits for supervised SDK cleanup`, { timeout: 15000 }, () => fixture(async f => {
     const ready=join(f.root,"ready"), ticks=join(f.root,"ticks");

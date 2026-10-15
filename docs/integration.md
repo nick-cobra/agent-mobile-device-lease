@@ -115,7 +115,8 @@ Run that script under `device-lease exec` or `device-session` as appropriate for
 its lifetime. `captureDevice` requires the wrapped child's platform, owner,
 device ID and token. It snapshots the registry/environment and preserves the
 configured TTL. Each asynchronous operation invokes the same installed CLI with
-the captured owner/token, so stale generations fail and active commands receive
+the captured owner/device/token, so stale generations or mismatched device IDs
+fail before SDK work and active commands receive
 the existing ownership-loss and signal cancellation. The helper never acquires
 or releases a lease. It does not renew while the adapter is idle.
 

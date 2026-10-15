@@ -20,7 +20,7 @@ export function captureDevice({ env = process.env } = {}) {
   const identity = Object.freeze({ platform, deviceId, owner, token, registry: snapshot.MOBILE_DEVICE_LEASE_DIR });
   const run = async (command, args, { capture = false, binary = false } = {}) => {
     if (typeof command !== "string" || !Array.isArray(args) || !args.every(arg => typeof arg === "string")) throw new Error("Adapter commands require a command and string arguments.");
-    const flags = [cli, "exec", "--platform", platform, "--owner", owner, "--token", token];
+    const flags = [cli, "exec", "--platform", platform, "--owner", owner, "--token", token, "--device", deviceId];
     if (ttl !== undefined) flags.push("--ttl-minutes", ttl);
     const result = await runChild(process.execPath, [...flags, "--", command, ...args], { env: snapshot, capture, binary, maxBuffer: 32 * 1024 * 1024 });
     if (result.code !== 0) {

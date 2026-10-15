@@ -120,7 +120,7 @@ macOS/Linux CI is checked separately before release.
 
 ## Version 0.1.4 customer feedback
 
-All **234 tests passed** locally on Node 22.23.2, macOS, with no failures,
+All **235 tests passed** locally on Node 22.23.2, macOS, with no failures,
 skips or cancellations. The previous 214 tests remain green. Ten new CLI-level
 regressions first failed for missing SDK failure details/classification, absent
 structured status and missing renewal timestamps. Adapter discovery also failed
@@ -136,7 +136,9 @@ unauthorised states remain visible.
 Adapter checks exercise captured identity/registry/TTL despite later environment
 changes, stale successor tokens between operations, active ownership loss,
 SIGINT/SIGTERM cleanup of SDK processes ignoring signals, bounded captured output,
-binary fidelity and conflicting selectors/destinations. Offline tarball tests
+binary fidelity and conflicting selectors/destinations. A further RED reproduced
+a mismatched captured device reaching XCTest with an otherwise valid owner/token;
+explicit device fencing now rejects it before SDK startup. Offline tarball tests
 copy both Android and iOS examples outside the installed package and execute them
 from personal and project installations. The personal application gains no
 manifest; each manual workflow retains its lease after capture. Failed XCTest

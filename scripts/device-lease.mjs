@@ -1001,6 +1001,10 @@ async function execWithLease() {
         `  device-lease acquire --platform ${platform}`,
     );
   }
+  const capturedDevice = argValue("--device", undefined);
+  if (capturedDevice && capturedDevice !== deviceId) {
+    fail(`The captured device ${capturedDevice} does not match this owner's leased device ${deviceId}; command not started.`);
+  }
   const renewed = await withLeaseMutex(platform, () =>
     renewLeaseIfOwned(platform, deviceId, owner, argValue("--label", undefined)),
   );
