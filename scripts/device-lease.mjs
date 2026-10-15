@@ -20,6 +20,7 @@ import { makeArgReader } from "./lib/args.mjs";
 import { resolveOwner as resolveCallerOwner } from "./lib/owner.mjs";
 import { assertSdkTarget } from "./lib/sdk-target.mjs";
 import { doctorReport } from "./lib/doctor.mjs";
+import { adoptionReport, formatAdoption } from "./lib/adoption-check.mjs";
 import { leaseStatus, formatTtl } from "./lib/lease-status.mjs";
 import { runLeasedChild } from "./lib/run-leased-child.mjs";
 import {
@@ -1169,9 +1170,19 @@ try {
       process.exitCode = report.ok ? 0 : 1;
       break;
     }
+    case "adoption-check": {
+      for (const flag of ["--scope", "--config"]) {
+        if (hasArg(flag) && (!argValue(flag) || argValue(flag).startsWith("--"))) fail(`${flag} requires an explicit value.`);
+      }
+      const report = adoptionReport({ scope: argValue("--scope"), configPath: argValue("--config"), leaseRoot, owner: resolveOwner(), avdPoolPrefix });
+      if (hasArg("--json")) process.stdout.write(`${JSON.stringify(report)}\n`);
+      else log(formatAdoption(report));
+      process.exitCode = report.ok ? 0 : 1;
+      break;
+    }
     default:
       fail(
-        "Usage: device-lease <acquire|release|exec|renew|recover|list|doctor> " +
+        "Usage: device-lease <acquire|release|exec|renew|recover|list|doctor|adoption-check> " +
           "[--platform android|ios]\n" +
           "  acquire  claim a device for this worktree and print shell exports\n" +
           "  release  drop this worktree's lease(s)\n" +
@@ -1179,7 +1190,8 @@ try {
           "  renew    push this worktree's lease expiry out and print the device\n" +
           "  recover  clear a system failure or restart only this worktree's leased virtual device\n" +
           "  list     show lease TTL, last renewal, device state and owner (or --json)\n" +
-          "  doctor   check SDK prerequisites, registry and visible capacity without claiming",
+          "  doctor   check SDK prerequisites, registry and visible capacity without claiming\n" +
+          "  adoption-check --scope personal|project   inspect installation, instructions and launchers",
       );
   }
 } catch (error) {

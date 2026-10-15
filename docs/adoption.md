@@ -8,10 +8,10 @@ application repository. Both paths use the same device protocol and registry.
 
 ## Personal: your agents on your Mac
 
-1. Install once with `npm install --global github:nick-cobra/agent-mobile-device-lease#v0.1.4`.
+1. Install once with `npm install --global github:nick-cobra/agent-mobile-device-lease#v0.1.5`.
 2. Ensure the global npm bin directory is on the agent process's PATH, not just an interactive terminal's PATH. Restart that process after changing PATH.
-3. Add the [personal standing rule](agent-instructions.md#personal-rule) to your agent client's personal instruction source. Do not replace existing instructions.
-4. Run `device-lease doctor --platform android` or `--platform ios`. Provide virtual-device capacity if needed.
+3. Add the [personal standing rule](agent-instructions.md#personal-rule) to your agent client's personal instruction source. The packaged [personal skill template](personal-skill.md) provides reusable task guidance alongside it. Do not replace existing instructions.
+4. Run `device-lease adoption-check --scope personal` to inspect installation, registry, instruction locations and declared launchers. File presence does not prove the agent loaded the rules. Run `device-lease doctor --platform android` or `--platform ios` for SDK/capacity checks. Provide virtual-device capacity if needed.
 5. Use the CLI from each application's worktree. Wrap an existing launcher only after confirming it honours the leased identity. For a launcher that picks the first emulator, use a [personal adapter](integration.md#personal-migration-of-a-first-device-installer).
 
 Application repositories need no manifest, lockfile, script or instruction
@@ -31,10 +31,10 @@ behaviour. [Official Codex instruction discovery](https://learn.chatgpt.com/docs
 
 ## Project/team: a shared workflow
 
-1. Add the pinned release as a development dependency with `pnpm add -D github:nick-cobra/agent-mobile-device-lease#v0.1.4` (or npm's `--save-dev`). Commit the manifest and lockfile. For an immutable pin, use the release's full Git commit SHA instead of its tag.
+1. Add the pinned release as a development dependency with `pnpm add -D github:nick-cobra/agent-mobile-device-lease#v0.1.5` (or npm's `--save-dev`). Commit the manifest and lockfile. For an immutable pin, use the release's full Git commit SHA instead of its tag.
 2. Add the [project standing rule](agent-instructions.md#project-rule) to the application's instructions.
 3. Integrate the shared preview/install/test/capture launcher. Keep one captured device and acquisition token throughout the task.
-4. Configure every project and worktree sharing devices to use the same registry and pool prefix. Run `pnpm exec device-lease doctor --platform android` or `--platform ios`.
+4. Configure every project and worktree sharing devices to use the same registry and pool prefix. Inspect with `pnpm exec device-lease adoption-check --scope project`; optionally declare custom instruction and launcher paths in the [inspection configuration](commands.md#inspect-adoption). Run `pnpm exec device-lease doctor --platform android` or `--platform ios` for prerequisites/capacity.
 5. Test the application's existing launcher against an owned virtual device and record the result before sharing the workflow with the team.
 
 Each participant needs access to the installed dependency. A project's pinned

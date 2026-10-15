@@ -222,6 +222,73 @@ An ambiguous service error stays `sdk-failure`, not a guessed sandbox diagnosis.
 Timeout and output-limit failures are identified separately. Check the SDK's
 actual error and the environment's service access before changing installation.
 
+## Inspect adoption
+
+```sh
+device-lease adoption-check --scope personal
+pnpm exec device-lease adoption-check --scope project --json
+device-lease adoption-check --scope personal --config ./adoption.json
+```
+
+Run from the application's worktree root. Scope is required. The report shows
+the running package's version, installation and CLI paths, Node version, caller,
+resolved owner, registry and Android pool prefix. This identifies the installation
+actually invoked; it does not inventory every version on PATH or another agent's
+environment. Compare reports from each participant to check registry agreement.
+
+The optional JSON configuration describes instruction and launcher locations for
+inspection; it does **not** set the registry, install rules or configure launchers:
+
+```json
+{
+  "version": 1,
+  "instructions": ["~/.codex/AGENTS.md", "~/.agents/skills/mobile-device-lease/SKILL.md"],
+  "launchers": [
+    {"platform": "android", "path": "~/.local/share/mobile-device-lease/android-personal-task.mjs"},
+    {"platform": "ios", "path": "~/.local/share/mobile-device-lease/ios-personal-task.mjs"}
+  ]
+}
+```
+
+Personal default: `$XDG_CONFIG_HOME/agent-mobile-device-lease/adoption.json`, or
+`~/.config/agent-mobile-device-lease/adoption.json` when unset. Project default:
+`.mobile-device-lease.json` in the current directory. `--config` overrides the
+location. Relative entries resolve against that file's directory; `~/` expands
+to the current user's home. Other environment variables and shell syntax are not
+expanded. Use `instructions: ["AGENTS.md"]` and project launcher paths for a shared
+project configuration. No configuration file is required for either scope.
+
+Without an `instructions` array, personal candidates include Codex home's
+`AGENTS.md`, `AGENTS.override.md`, `~/.agents/skills/mobile-device-lease/SKILL.md`
+and the older Codex-home skill location. Codex home means `CODEX_HOME` or
+`~/.codex`. Project candidates include current-directory `AGENTS.md`,
+`AGENTS.override.md` and `.agents/skills/mobile-device-lease/SKILL.md`. These are
+candidate paths, not an exhaustive client discovery or precedence calculation.
+Declare custom client files explicitly. An empty array intentionally declares no
+locations. Launchers are reported only when declared; direct wrapped SDK use
+needs no adapter, so absent declarations mean integration is unknown.
+
+Each location reports `present`, `missing`, `not-file` or `unreadable`. Contents
+are neither read nor printed; readable file presence does not establish rule
+content, skill invocation or active agent loading. Launcher targeting always
+remains `unverified`: inspect internal selection and perform a captured-device
+integration test. The check never executes launchers or SDK tools, scans the home
+directory, changes configuration or touches the lease registry. It reads only
+its own package metadata, the selected configuration and file metadata/access.
+Owner resolution may run Git to identify the caller's checkout.
+
+Text uses stderr; `--json` emits structured stdout. Exit 0 means inspection
+completed without configuration/file errors, **not** that adoption is proven.
+A missing default config or candidate file is normal. An explicitly requested
+missing config, malformed/oversized config, missing declared file, unreadable
+file or non-file location returns 1. Config files are limited to 64 KiB and
+64 paths per array; unknown fields are rejected. No configuration values beyond
+the documented paths/platforms are reported.
+
+Use [doctor](#diagnose-prerequisites-and-capacity) separately for SDK/capacity
+checks, the [personal skill](personal-skill.md) for reusable guidance and the
+[standing rules](agent-instructions.md) to make participation an ongoing rule.
+
 ## Recover the owned virtual device
 
 ```sh

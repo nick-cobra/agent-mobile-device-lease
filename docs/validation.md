@@ -152,3 +152,27 @@ configuration, live SDK permissions or human/agent compliance with manual testin
 instructions. Manual-session guidance does not add an idle background renewer,
 change TTL or prevent an explicit valid release. Hosted Node 22/24 macOS/Linux
 checks are verified separately before release.
+
+## Version 0.1.5 personal skill and adoption inspection
+
+All **245 tests passed** locally on Node 22.23.2, macOS, with no failures,
+skips or cancellations. The previous 236 tests remain green. Nine new CLI tests
+cover explicit scope, running-package version/path, registry/owner, personal
+candidates, project defaults, configured instruction/launcher paths, missing
+files, invalid/oversized configuration and non-file locations. The same tests
+snapshot disposable application, personal home and registry trees before and
+after each call; no files change. SDK commands are unavailable in that fixture.
+Instruction contents are not returned and configured launchers are not executed.
+All nine tests first failed against 0.1.4 because the command was unavailable.
+
+The offline global-personal and project-local packaged installation test now
+checks each installation's own version/path and caller, the shared registry,
+configured instruction/launcher presence and explicitly unverified loading/targeting.
+It copies the shipped skill outside the package without application manifest
+changes for personal use. The skill passed the skill-creator frontmatter/name/
+placeholder validator and was reviewed against the existing manual-session rules.
+That validation does not prove automatic selection by every agent client.
+
+No live devices or application builds are used by these new checks. They inspect
+configuration, not agent compliance or launcher targeting. Hosted Node 22/24
+macOS/Linux CI is checked separately before release.

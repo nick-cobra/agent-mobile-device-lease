@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5
+
+- Package a project-neutral personal skill template alongside the copyable standing rules, with manual-session ownership and truthful idle renewal.
+- Add read-only personal/project adoption checks for the running version, installation, registry, instruction locations and declared launcher files.
+- Support optional inspection configuration for custom agent clients and personal adapters; keep agent loading and launcher targeting explicitly unverified.
+
 ## 0.1.4
 
 - Keep manual testing and feedback across replies inside the documented session lifetime, with captured-token release only after the user finishes or switches devices.

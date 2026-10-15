@@ -3,7 +3,11 @@
 Installing the CLI does not opt agents into the lease protocol. Choose a block
 for your adoption scope and merge it into the appropriate instruction source.
 Do not overwrite existing instructions. See [Adoption](adoption.md) for personal
-rule locations, existing-chat refresh and shared-registry configuration.
+rule locations, existing-chat refresh and shared-registry configuration. A
+packaged [personal skill template](personal-skill.md) provides reusable task
+guidance alongside these rules; it does not guarantee automatic participation.
+Inspect configured locations with `device-lease adoption-check --scope personal`
+or `pnpm exec device-lease adoption-check --scope project`.
 
 ## Personal rule
 
