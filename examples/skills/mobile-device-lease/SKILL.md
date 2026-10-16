@@ -60,6 +60,15 @@ verifying a real renewal process. Otherwise report the deadline and arrange rene
 before it; do not promise indefinite reservation. Device shutdown after a restart
 does not end a valid lease or prove its owner is finished.
 
+For a release including `keep-alive`, explicitly run `device-lease keep-alive
+--platform <android|ios> --owner <captured-owner> --device <captured-device>
+--token <captured-token> --duration-minutes 60 --json` in a persistent process
+session. Check its `started` event and live PID before claiming renewal; track
+its health and finite deadline across replies. It preserves the stored TTL
+unless overridden. Stop the verified own renewer and wait for exit before
+final captured-token release. Stopping renewal leaves the lease held. See
+the installed command reference for availability and status fields.
+
 Release only when the user finishes testing, requests release or switches devices,
 after all device commands finish: `device-lease release --platform <android|ios>
 --owner '<captured-owner>' --token '<captured-token>'`.

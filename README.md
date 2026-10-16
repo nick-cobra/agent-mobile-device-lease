@@ -94,6 +94,12 @@ heartbeat stops. Renew before the stored expiry during idle periods; never claim
 automatic renewal without a running, verified renewer. If that cannot be ensured,
 report the actual deadline and arrange renewal or finish testing before it.
 
+The next release adds an explicit [bounded keep-alive command](docs/commands.md#keep-a-manual-session-renewed)
+for idle manual sessions. It is not available in v0.1.5. It starts only when
+requested, requires the captured token and leaves the lease held when renewal
+stops. Verify its live process and `started` record before claiming automatic
+renewal, and track its finite deadline across replies.
+
 ## Android manual session
 
 Capture the owner, device ID and token from this acquisition. Replace the quoted

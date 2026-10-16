@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add explicit, bounded `keep-alive` renewal for an existing captured manual-session lease, with text/JSON lifecycle status and cancellation-aware mutex waits. Stopping renewal leaves the lease held until its stored expiry or captured-token release.
+
 ## 0.1.5
 
 - Package a project-neutral personal skill template alongside the copyable standing rules, with manual-session ownership and truthful idle renewal.
