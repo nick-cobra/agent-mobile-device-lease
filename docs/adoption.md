@@ -68,6 +68,8 @@ Use persistent `acquire` + `exec` for that workflow. `device-session` is for
 finite unattended work: it releases when its child exits, so a returning
 installer is the wrong session boundary for later human testing.
 
+The next release adds explicit bounded [keep-alive renewal](commands.md#keep-a-manual-session-renewed); verify its process and track its deadline before claiming automatic renewal.
+
 Acquisition alone starts no idle renewal process. `exec` heartbeats only during
 its child. Check `device-lease list --json`, renew before expiry throughout idle
 periods, and report the actual deadline if no verified renewer is running. Do

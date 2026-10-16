@@ -61,6 +61,12 @@ renewer and `exec` renews only while its child runs. Release only when the user
 finishes, requests release or switches devices, after all device commands finish,
 using the captured token. See [manual-session examples](../README.md#manual-testing-and-session-lifetime).
 
+For idle renewal, the next release's explicit
+[keep-alive command](commands.md#keep-a-manual-session-renewed) can run separately
+from the launcher with the same captured owner/device/token. Verify its started
+record and process liveness, track its finite duration, and stop it before final
+release. It does not run the launcher or release when its duration ends.
+
 For finite unattended work whose entire device lifecycle ends inside one child,
 use `pnpm exec device-session --platform android -- node scripts/mobile-check.mjs`.
 That automatically releases on child exit, including failure. A returning

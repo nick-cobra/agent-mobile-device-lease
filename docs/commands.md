@@ -92,6 +92,74 @@ Installation, a screenshot and the end of an agent turn do not meet that release
 condition. A finite unattended session can release when its complete device work
 finishes. See [standing agent rules](agent-instructions.md).
 
+## Keep a manual session renewed
+
+Available in the next release; v0.1.5 does not include this command.
+
+After `device-lease acquire --platform android --json`, retain its owner, device
+and token. Start the explicit renewer in a terminal that stays open or an
+agent-managed persistent process session:
+
+```sh
+device-lease keep-alive --platform android --owner '<captured-owner>' \
+  --device '<captured-device>' --token '<captured-token>' \
+  --duration-minutes 60 --json
+```
+
+Project installations use `pnpm exec device-lease`; iOS uses `--platform ios`.
+No new lease is acquired. The captured token is required, either with `--token`
+or `MOBILE_DEVICE_TOKEN`. A mismatching device/token, expired lease or
+unverifiable ownership stops the operation. It never adopts a successor.
+
+The default renewal duration is **60 minutes**, with a maximum of **1440 minutes**.
+This is the renewer's lifetime, not an immediate-expiry or release deadline for
+the lease. A renewal already waiting for the registry mutex is cancelled when
+the duration ends or the process receives SIGINT/SIGTERM. Each write checks
+cancellation before updating the record. Duration completion before the first
+successful renewal is a failure.
+
+Without `--ttl-minutes`, keep-alive preserves the current stored TTL using the
+record's expiry and `acquiredAt` renewal stamp. If that interval is unknown or
+invalid, supply an explicit TTL; no renewal is attempted. An explicit
+`--ttl-minutes` sets the renewal TTL, with the existing minimum of one minute.
+Keep the same intended TTL in concurrent `exec` calls. Renewal runs initially
+and at a quarter of that TTL, with timers capped at one day. Ownership is checked
+every second independently of a pending renewal. These are event-loop schedules,
+not hard real-time guarantees.
+
+Text progress goes to stderr. `--json` emits **one JSON object per line**:
+`started` after a successful initial renewal, `renewed` after later renewals,
+and `stopped` after renewal activity has ended. Events include `pid`, captured
+owner/device/platform, `renewalEndsAt`, `expiresAt`, `lastRenewedAt` and
+`renewalHealthy`. A lost/unverifiable lease has `expiresAt: null`;
+`lastConfirmedExpiresAt` is diagnostic history, not a current ownership claim.
+The acquisition token is not printed by this command.
+
+Verify that the reported process is alive and its `started` event confirms the
+captured session before claiming idle renewal. Keep its process session/logs and
+finite deadline visible across replies; a CLI installation or completed command
+does not establish a running renewer. Use `device-lease list --json` for current
+lease freshness. If renewal stops while testing continues, arrange another
+explicit bounded renewer before expiry; do not assume it restarted itself.
+
+Stop it with Ctrl-C in its terminal, or SIGTERM to its verified own PID. With a
+package-manager launcher, use the CLI PID reported in `started`, not an assumed
+parent PID. Wait for process exit/`stopped`. Exit status is 0 for completed
+duration, 130/143 for SIGINT/SIGTERM, and 1 for ownership or renewal failure.
+No status implies that a renewer survived a force-kill or machine restart.
+
+The lease remains held with its actual stored expiry after renewal stops.
+**Only once manual testing has finished or the user requests release/switches
+devices, and all SDK commands and the renewer have stopped**, release it:
+
+```sh
+device-lease release --platform android --token '<captured-token>'
+```
+
+Neither `acquire`, installation, upgrades nor `device-session` implicitly starts
+this idle renewer. It executes no SDK commands, launches no background daemon and
+does not occupy a build slot.
+
 ## Execute against an existing lease
 
 ```sh

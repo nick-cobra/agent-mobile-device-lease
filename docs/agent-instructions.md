@@ -38,6 +38,14 @@ starts no background renewer; exec renews only while its child runs. Renew befor
 the stored expiry with device-lease renew --platform <android|ios>
 --token <captured-token>. Inspect device-lease list --json for actual expiry.
 Use the same --ttl-minutes on renew/exec when using a custom lifetime.
+With a release that includes keep-alive, explicitly start device-lease
+keep-alive --platform <android|ios> --owner <captured-owner>
+--device <captured-device> --token <captured-token> --duration-minutes 60 --json
+in a persistent process session. Verify its started record and live PID before
+claiming renewal; track its health and finite deadline across replies. It
+preserves the stored TTL unless explicitly overridden. Stop the verified own
+renewer and wait for exit before final captured-token release. Ending renewal
+does not release the lease. See the installed command reference for availability.
 Claim automatic idle renewal only after starting and verifying a real renewal
 process. Otherwise report the deadline and arrange renewal before it; do not
 promise indefinite reservation. If ownership expires or is lost, stop device
@@ -99,6 +107,14 @@ starts no background renewer; exec renews only while its child runs. Renew befor
 the stored expiry with pnpm exec device-lease renew --platform <android|ios>
 --token <captured-token>. Inspect pnpm exec device-lease list --json for actual expiry.
 Use the same --ttl-minutes on renew/exec when using a custom lifetime.
+With a release that includes keep-alive, explicitly start pnpm exec device-lease
+keep-alive --platform <android|ios> --owner <captured-owner>
+--device <captured-device> --token <captured-token> --duration-minutes 60 --json
+in a persistent process session. Verify its started record and live PID before
+claiming renewal; track its health and finite deadline across replies. It
+preserves the stored TTL unless explicitly overridden. Stop the verified own
+renewer and wait for exit before final captured-token release. Ending renewal
+does not release the lease. See the installed command reference for availability.
 Claim automatic idle renewal only after starting and verifying a real renewal
 process. Otherwise report the deadline and arrange renewal before it; do not
 promise indefinite reservation. If ownership expires or is lost, stop device

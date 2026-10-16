@@ -92,6 +92,13 @@ if(process.env.AMDL_TEST_FAILURE==='1' && args.includes('test-without-building')
       for (const platform of ["android", "ios"]) {
         env.MOBILE_DEVICE_FAKE_CAPACITY = platform === "android" ? "emulator-5554" : "SIM-OWNED";
         const owned = JSON.parse(succeeds(invoke(installedCli, ["acquire", "--platform", platform, "--no-boot", "--wait-seconds", "0", "--json"], app)).stdout);
+        const renewal = succeeds(invoke(installedCli, ["keep-alive", "--platform", platform, "--owner", owned.owner, "--device", owned.deviceId, "--token", owned.token, "--duration-minutes", "0.005", "--json"], app));
+        const events = renewal.stdout.trim().split("\n").map(JSON.parse);
+        assert.deepEqual(events.map(event => event.event), ["started", "stopped"]);
+        assert.equal(events[0].owner, owned.owner);
+        assert.equal(events[0].deviceId, owned.deviceId);
+        assert.equal(events[1].reason, "duration-complete");
+        assert.equal(JSON.parse(await readFile(join(env.MOBILE_DEVICE_LEASE_DIR, platform, `${owned.deviceId}.lock/meta.json`), "utf8")).token, owned.token);
         const example = join(root, `${scope}-${platform}-task.mjs`);
         await copyFile(join(packageRoot, `examples/${platform}-personal-task.mjs`), example);
         const shot = join(root, `${scope}-${platform}.png`);

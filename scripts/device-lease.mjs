@@ -23,6 +23,7 @@ import { doctorReport } from "./lib/doctor.mjs";
 import { adoptionReport, formatAdoption } from "./lib/adoption-check.mjs";
 import { leaseStatus, formatTtl } from "./lib/lease-status.mjs";
 import { runLeasedChild } from "./lib/run-leased-child.mjs";
+import { runKeepAlive } from "./lib/keep-alive.mjs";
 import {
   DEFAULT_TTL_MINUTES,
   DEFAULT_WAIT_SECONDS,
@@ -170,13 +171,15 @@ function tryListen(socketPath) {
   });
 }
 
-async function withLeaseMutex(platform, fn) {
+async function withLeaseMutex(platform, fn, active = () => true) {
+  if (!active()) return false;
   mkdirSync(platformDir(platform), { recursive: true });
   const socketPath = mutexPathFor(platform);
   const deadline = Date.now() + MUTEX_WAIT_MS;
 
   let server = null;
   while (!server) {
+    if (!active()) return false;
     server = await tryListen(socketPath);
     if (server) break;
     const takeoverDelayMs = Number(process.env.MOBILE_DEVICE_TEST_TAKEOVER_DELAY_MS ?? 0);
@@ -194,7 +197,7 @@ async function withLeaseMutex(platform, fn) {
     }
 
     if (Date.now() >= deadline) {
-      fail(
+      throw new Error(
         `Timed out waiting for the ${platform} lease mutex at ${socketPath}.\n` +
           "Its holder is still running.",
       );
@@ -203,7 +206,7 @@ async function withLeaseMutex(platform, fn) {
   }
 
   try {
-    return await fn();
+    return active() ? await fn() : false;
   } finally {
     await new Promise((resolvePromise) => server.close(resolvePromise));
   }
@@ -315,7 +318,7 @@ function dropOtherLeases(platform, owner, keepDeviceId) {
     }
   }
 }
-function renewLeaseIfOwned(platform, deviceId, owner, label, tokenFence = expectedToken) {
+function renewLeaseIfOwned(platform, deviceId, owner, label, tokenFence = expectedToken, renewalTtlMs = ttlMs, active = () => true) {
   const renewDelayMs = Number(process.env.MOBILE_DEVICE_TEST_RENEW_DELAY_MS ?? 0);
   if (renewDelayMs > 0) sleep(renewDelayMs);
 
@@ -331,6 +334,7 @@ function renewLeaseIfOwned(platform, deviceId, owner, label, tokenFence = expect
 
   const now = Date.now();
   if (
+    !active() ||
     meta?.owner !== owner ||
     isExpired(meta, now, ttlMs) ||
     (tokenFence && meta.token !== tokenFence)
@@ -342,12 +346,13 @@ function renewLeaseIfOwned(platform, deviceId, owner, label, tokenFence = expect
     label: label ?? meta.label ?? null,
     acquiredAt: new Date(now).toISOString(),
     lastRenewedAt: new Date(now).toISOString(),
-    expiresAt: new Date(now + ttlMs).toISOString(),
+    expiresAt: new Date(now + renewalTtlMs).toISOString(),
   };
   const stagingFile = `${metaFile}.renewing-${randomUUID()}`;
   writeFileSync(stagingFile, `${JSON.stringify(renewed, null, 2)}\n`);
 
   try {
+    if (!active()) { rmSync(stagingFile, { force: true }); return false; }
     renameSync(stagingFile, metaFile);
   } catch {
     rmSync(stagingFile, { force: true });
@@ -1085,6 +1090,53 @@ async function renewCommand() {
 
   process.stdout.write(`${deviceId}\n`);
 }
+async function keepAliveCommand() {
+  const flags = new Set(["--platform", "--owner", "--device", "--token", "--ttl-minutes", "--duration-minutes", "--json"]);
+  const seen = new Set();
+  for (let index = 3; index < leaseArgs.length; index++) {
+    const flag = leaseArgs[index];
+    if (!flags.has(flag) || seen.has(flag)) fail(`Unsupported or duplicate keep-alive option: ${flag}`);
+    seen.add(flag);
+    if (flag !== "--json" && (!leaseArgs[++index] || leaseArgs[index].startsWith("--"))) fail(`${flag} requires an explicit value.`);
+  }
+  if (separatorIndex !== -1) fail("keep-alive does not run a child command.");
+  if (!expectedToken) fail("keep-alive requires a captured --token (or MOBILE_DEVICE_TOKEN); acquire a lease first.");
+  const durationMinutes = numberFlag("--duration-minutes", 60, { allowZero: false });
+  if (durationMinutes > 1440) fail("--duration-minutes must be no more than 1440 (24 hours).");
+  const platform = requirePlatform();
+  const owner = resolveOwner();
+  const deviceId = leasedDeviceFor({ leaseRoot, platform, owner, nowMs: Date.now(), fallbackTtlMs: ttlMs });
+  if (!deviceId) fail(`This worktree holds no live ${platform} lease; keep-alive never acquires one.`);
+  if (hasArg("--device") && argValue("--device") !== deviceId) fail("Captured device does not match the leased device; no renewal started.");
+  const readLease = () => {
+    try {
+      const meta = JSON.parse(readFileSync(join(lockPath(platform, deviceId), "meta.json"), "utf8"));
+      return meta?.owner === owner && meta.deviceId === deviceId && meta.token === expectedToken &&
+        Number.isFinite(Date.parse(meta.expiresAt)) && Date.parse(meta.expiresAt) > Date.now() ? meta : null;
+    } catch { return null; }
+  };
+  const captured = readLease();
+  if (!captured) fail("Captured ownership is no longer valid; no renewal started.");
+  // Existing records stamp acquiredAt on each renewal. Preserve their TTL when
+  // no override was supplied; do not silently reset a custom session to 4 hours.
+  const renewalTtlMs = hasArg("--ttl-minutes") ? ttlMs : Date.parse(captured.expiresAt) - Date.parse(captured.acquiredAt);
+  if (!Number.isFinite(renewalTtlMs) || renewalTtlMs < 60000 || !Number.isFinite(Date.now() + renewalTtlMs) || Date.now() + renewalTtlMs > 8.64e15) {
+    fail("Cannot infer a valid lease TTL; supply --ttl-minutes explicitly. No renewal started.");
+  }
+  const code = await runKeepAlive({
+    durationMs: durationMinutes * 60000, heartbeatMs: Math.min(Math.floor(renewalTtlMs / 4), 86400000),
+    identity: { platform, deviceId, owner }, readLease,
+    renewLease: active => withLeaseMutex(platform, () => {
+      if (!active() || !readLease()) return false;
+      return renewLeaseIfOwned(platform, deviceId, owner, null, expectedToken, renewalTtlMs, active);
+    }, active),
+    onEvent: event => {
+      if (hasArg("--json")) process.stdout.write(`${JSON.stringify(event)}\n`);
+      else log(`Keep-alive ${event.event}: pid=${event.pid} ${platform}=${deviceId} renewal-ends=${event.renewalEndsAt} lease-expires=${event.expiresAt ?? "unverified"}${event.reason ? ` reason=${event.reason}` : ""}${event.detail ? ` (${event.detail})` : ""}`);
+    },
+  });
+  process.exitCode = code;
+}
 async function recoverCommand() {
   const platform = requirePlatform();
   const owner = resolveOwner();
@@ -1153,6 +1205,9 @@ try {
     case "renew":
       await renewCommand();
       break;
+    case "keep-alive":
+      await keepAliveCommand();
+      break;
     case "recover":
       await recoverCommand();
       break;
@@ -1182,12 +1237,13 @@ try {
     }
     default:
       fail(
-        "Usage: device-lease <acquire|release|exec|renew|recover|list|doctor|adoption-check> " +
+        "Usage: device-lease <acquire|release|exec|renew|keep-alive|recover|list|doctor|adoption-check> " +
           "[--platform android|ios]\n" +
           "  acquire  claim a device for this worktree and print shell exports\n" +
           "  release  drop this worktree's lease(s)\n" +
           "  exec     run a command with this worktree's lease in its environment\n" +
           "  renew    push this worktree's lease expiry out and print the device\n" +
+          "  keep-alive  renew a captured lease for a bounded manual session\n" +
           "  recover  clear a system failure or restart only this worktree's leased virtual device\n" +
           "  list     show lease TTL, last renewal, device state and owner (or --json)\n" +
           "  doctor   check SDK prerequisites, registry and visible capacity without claiming\n" +
