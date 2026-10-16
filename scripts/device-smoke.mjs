@@ -89,9 +89,18 @@ async function acquire(owner, allowFailure = false) {
 async function sdkSnapshot() {
   const args = platform === "android" ? ["adb", "devices"] : ["xcrun", "simctl", "list", "devices", "available", "--json"];
   const r = await command(args);
-  const devices = {};
+  const devices = Object.create(null);
   if (platform === "android") {
-    for (const line of r.stdout.split("\n")) { const m = /^(\S+)\s+(device|offline|unauthorized)\s*$/.exec(line.trim()); if (m) devices[m[1]] = m[2]; }
+    const lines = r.stdout.split(/\r?\n/), header = lines.findIndex(line => line.trim() === "List of devices attached");
+    if (header === -1) fail("invalid-sdk-inventory");
+    for (const line of lines.slice(header + 1)) {
+      if (!line.trim()) continue;
+      // Keep the complete state, including recovery/sideload and multiword
+      // permission diagnostics. Dropping an unfamiliar row hides transitions.
+      const m = /^(\S+)\s+(.+)$/.exec(line.trim());
+      if (!m || Object.hasOwn(devices, m[1])) fail("invalid-sdk-inventory");
+      devices[m[1]] = m[2];
+    }
   } else {
     let data; try { data = JSON.parse(r.stdout); } catch { fail("invalid-sdk-inventory"); }
     for (const list of Object.values(data.devices ?? {})) for (const d of list) if (d.isAvailable !== false && typeof d.udid === "string") devices[d.udid] = d.state;

@@ -179,9 +179,9 @@ macOS/Linux CI is checked separately before release.
 
 ## Version 0.1.6 manual renewal, guidance revisions and smoke harness
 
-All **295 tests passed** locally on Node 22.23.2, macOS, with no failures,
+All **300 tests passed** locally on Node 22.23.2, macOS, with no failures,
 skips or cancellations. Coverage includes the previous 245 tests, 17 manual
-keep-alive cases, 19 copied-guidance cases, 13 smoke safety/process cases and
+keep-alive cases, 19 copied-guidance cases, 18 smoke safety/process cases and
 one new offline packaged smoke test. Existing packaged adoption coverage also
 executes bounded renewal and inspects actual copied rules from both installation
 scopes. These tests use disposable registries and stub SDKs.
@@ -195,6 +195,14 @@ reproduced an interrupted acquisition incorrectly reporting verified cleanup;
 that uncertain outcome now remains unverified and its short lease expires
 naturally. These statements distinguish new regression evidence from already
 passing boundaries.
+
+Independent review also reproduced a recovery-to-sideload transition being
+omitted from Android preservation snapshots. Four focused regressions first
+failed: the transition falsely passed, and stable recovery, sideload and
+multiword permission states were missing from observation counts. Complete
+inventory state capture now detects the transition and preserves those rows.
+An additional RED proves inventory serials that coincide with object prototype
+keys must remain visible too; the snapshot dictionary has no inherited keys.
 
 The smoke tests cover both virtual platforms, occupied and unrelated expired
 records, inherited identity/Git overrides, explicit live-mode refusal of test

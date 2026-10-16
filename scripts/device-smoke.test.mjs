@@ -21,7 +21,10 @@ const f=require('node:fs'),a=process.argv.slice(2),tool=require('node:path').bas
 f.appendFileSync(process.env.SMOKE_FIXTURE_LOG,JSON.stringify({tool,args:a})+'\\n');
 if(a.includes('version')||a.includes('--version')){console.log(tool==='adb'?'Android Debug Bridge version 1.0.41':'xcrun version 72.');process.exit(0)}
 if(a.includes('devices')){
- if(tool==='adb')console.log('List of devices attached\\nemulator-5554 device\\nemulator-5556 device');
+ const inventoryCall=f.readFileSync(process.env.SMOKE_FIXTURE_LOG,'utf8').trim().split('\\n').map(JSON.parse).filter(x=>x.args.includes('devices')).length;
+ const state=process.env.SMOKE_FIXTURE_OTHER_STATE||'device';
+ const otherState=process.env.SMOKE_FIXTURE_TRANSITION==='1'&&inventoryCall>1?'sideload':state;
+ if(tool==='adb')console.log('List of devices attached\\nemulator-5554 device\\n'+(process.env.SMOKE_FIXTURE_OTHER_SERIAL||'emulator-5556')+' '+otherState);
  else console.log(JSON.stringify({devices:{'com.apple.CoreSimulator.SimRuntime.iOS-26-0':[{udid:'${ids.ios}',name:'iPhone Fixture',state:'Booted',isAvailable:true},{udid:'${other.ios}',name:'iPhone Other',state:'Booted',isAvailable:true}]}}));
  process.exit(0);
 }
@@ -72,6 +75,27 @@ for (const platform of ["android", "ios"]) test(`installed-style ${platform} smo
   const calls = (await readFile(f.log, "utf8")).trim().split("\n").map(JSON.parse);
   assert.ok(calls.some(x => x.args.includes(platform === "android" ? "get-serialno" : "getenv")));
   assert.ok(calls.every(x => !x.args.some(arg => ["boot", "shutdown", "erase", "delete", "kill-server", "install"].includes(arg))));
+}));
+
+test("unrelated recovery-to-sideload transition makes SDK preservation inconclusive", { timeout: 12000 }, () => fixture("android", async f => {
+  const r = await (await f.run([], { SMOKE_FIXTURE_OTHER_STATE: "recovery", SMOKE_FIXTURE_TRANSITION: "1" })).result;
+  assert.equal(r.code, 1, r.stdout + r.stderr);
+  const report = JSON.parse(r.stdout);
+  assert.equal(report.observations.unrelatedDeviceStates, 1);
+  assert.ok(report.checks.some(c => c.name === "unrelated-devices" && c.status === "failed" && c.kind === "sdk-inventory-changed-inconclusive"));
+  assert.equal(report.cleanup, "passed");
+}));
+
+for (const state of ["recovery", "sideload", "no permissions (check local USB rules)"]) test(`stable unrelated Android state is preserved: ${state}`, { timeout: 12000 }, () => fixture("android", async f => {
+  const r = await (await f.run([], { SMOKE_FIXTURE_OTHER_STATE: state })).result;
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(JSON.parse(r.stdout).observations.unrelatedDeviceStates, 1);
+}));
+
+test("unrelated inventory serials cannot be dropped by object prototype keys", { timeout: 12000 }, () => fixture("android", async f => {
+  const r = await (await f.run([], { SMOKE_FIXTURE_OTHER_SERIAL: "__proto__", SMOKE_FIXTURE_OTHER_STATE: "recovery" })).result;
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(JSON.parse(r.stdout).observations.unrelatedDeviceStates, 1);
 }));
 
 for (const kind of ["occupied", "unrelated-expired"]) test(`${kind} registry state is refused before SDK work`, { timeout: 10000 }, () => fixture("android", async f => {
