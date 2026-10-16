@@ -35,19 +35,36 @@ test("offline personal and project installations coordinate through the same reg
     ]) {
       const config = join(root, `${scope}-adoption.json`);
       const skill = join(packageRoot, "examples/skills/mobile-device-lease/SKILL.md");
-      await writeFile(config, JSON.stringify({ version: 1, instructions: [skill], launchers: [{ platform: "ios", path: join(packageRoot, "examples/ios-personal-task.mjs") }] }));
+      await writeFile(config, JSON.stringify({ version: 1, instructions: [{ path: skill, inspectGuidance: true }], launchers: [{ platform: "ios", path: join(packageRoot, "examples/ios-personal-task.mjs") }] }));
       const report = JSON.parse(succeeds(invoke(installedCli, ["adoption-check", "--scope", scope, "--config", config, "--json"], app)).stdout);
       assert.equal(report.installation.version, expectedVersion);
       assert.equal(await realpath(report.installation.packageRoot), await realpath(packageRoot));
       assert.equal(report.registry, env.MOBILE_DEVICE_LEASE_DIR);
       assert.equal(report.owner, await realpath(app));
       assert.equal(report.instructions[0].status, "present");
+      assert.equal(report.installation.guidanceRevision, 1);
+      assert.equal(report.instructions[0].guidance.status, "matching");
+      assert.equal(report.instructions[0].guidance.declaredRevision, 1);
       assert.equal(report.launchers[0].status, "present");
       assert.equal(report.agentLoading, "unverified");
       assert.equal(report.launchers[0].targeting, "unverified");
       const copiedSkill = join(root, `${scope}-skill/SKILL.md`);
       await mkdir(dirname(copiedSkill)); await copyFile(skill, copiedSkill);
       assert.equal(await readFile(copiedSkill, "utf8"), await readFile(skill, "utf8"));
+      await writeFile(config, JSON.stringify({ version: 1, instructions: [{ path: copiedSkill, inspectGuidance: true }] }));
+      const copied = JSON.parse(succeeds(invoke(installedCli, ["adoption-check", "--scope", scope, "--config", config, "--json"], app)).stdout);
+      assert.equal(copied.instructions[0].guidance.status, "matching");
+      const standing = await readFile(join(packageRoot, "docs/agent-instructions.md"), "utf8");
+      const blocks = [...standing.matchAll(/```md\n([\s\S]*?)```/g)];
+      assert.equal(blocks.length, 2, "both packaged standing rules must carry current guidance");
+      const rulePaths = [];
+      for (const [index, block] of blocks.entries()) {
+        const rule = join(root, `${scope}-rule-${index}.md`); await writeFile(rule, block[1]);
+        rulePaths.push({ path: rule, inspectGuidance: true });
+      }
+      await writeFile(config, JSON.stringify({ version: 1, instructions: rulePaths }));
+      const rules = JSON.parse(succeeds(invoke(installedCli, ["adoption-check", "--scope", scope, "--config", config, "--json"], app)).stdout);
+      assert.deepEqual(rules.instructions.map(file => file.guidance.status), ["matching", "matching"]);
     }
     const acquisition = ["acquire", "--platform", "android", "--no-boot", "--wait-seconds", "0", "--json"];
     const lease = JSON.parse(succeeds(invoke(personalCli, acquisition, personalApp)).stdout);

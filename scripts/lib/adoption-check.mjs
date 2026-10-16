@@ -2,6 +2,7 @@ import { accessSync, closeSync, constants, fstatSync, openSync, readSync, statSy
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GUIDANCE_REVISION, guidanceRevision } from "./guidance-revision.mjs";
 
 const packageRoot = fileURLToPath(new URL("../../", import.meta.url)).replace(/\/$/, "");
 const limits = "At most 64 instruction and 64 launcher paths are supported.";
@@ -23,7 +24,11 @@ function validate(config) {
   for (const key of ["instructions", "launchers"]) {
     if (config[key] !== undefined && (!Array.isArray(config[key]) || config[key].length > 64)) throw Error(limits);
   }
-  if ((config.instructions ?? []).some(p => !validPath(p))) throw Error("Each instruction must be a non-empty file path.");
+  if ((config.instructions ?? []).some(p => !validPath(p) && !(object(p) &&
+    Object.keys(p).every(k => ["path", "inspectGuidance"].includes(k)) && validPath(p.path) &&
+    (p.inspectGuidance === undefined || typeof p.inspectGuidance === "boolean")))) {
+    throw Error("Each instruction must be a path or an object with path and optional boolean inspectGuidance; unknown fields are rejected.");
+  }
   if ((config.launchers ?? []).some(l => !object(l) || Object.keys(l).some(k => !["platform", "path"].includes(k)) || !["android", "ios"].includes(l.platform) || !validPath(l.path))) {
     throw Error("Each launcher needs platform android or ios and a non-empty path; unknown fields are rejected.");
   }
@@ -66,18 +71,26 @@ export function adoptionReport({ scope, configPath, leaseRoot, owner, avdPoolPre
   }
   const configured = configStatus.status === "present";
   const instructions = (configured && config.instructions !== undefined
-    ? config.instructions.map(p => ({ ...fileStatus(expand(p, dirname(path))), source: "configured" }))
-    : candidates.map(p => ({ ...fileStatus(resolve(p)), source: "candidate" })));
+    ? config.instructions.map(p => {
+      const declaration = typeof p === "string" ? { path: p } : p;
+      const file = fileStatus(expand(declaration.path, dirname(path)));
+      return { ...file, source: "configured", guidance: guidanceRevision(file, { inspect: declaration.inspectGuidance === true }) };
+    })
+    : candidates.map(p => {
+      const file = fileStatus(resolve(p));
+      return { ...file, source: "candidate", guidance: guidanceRevision(file, { source: "candidate" }) };
+    }));
   const launchers = (config.launchers ?? []).map(l => ({ ...fileStatus(expand(l.path, dirname(path))), platform: l.platform, source: "configured", targeting: "unverified" }));
   const version = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")).version;
   return {
     ok: (configured || (configStatus.status === "missing" && !configPath)) &&
       [...instructions, ...launchers].every(f => f.status === "present" || (f.status === "missing" && f.source === "candidate")),
-    scope, installation: { version, packageRoot, cli: join(packageRoot, "scripts/device-lease.mjs"), node: process.version },
+    scope, installation: { version, guidanceRevision: GUIDANCE_REVISION, packageRoot, cli: join(packageRoot, "scripts/device-lease.mjs"), node: process.version },
     cwd: resolve(cwd), owner, registry: resolve(leaseRoot), avdPoolPrefix,
     config: configStatus, instructions, launchers, agentLoading: "unverified",
     notes: [
       "File presence does not prove an agent loaded the instructions or a skill was invoked. Confirm in the agent's active session.",
+      "Guidance revisions are advisory declarations, not validation of rule contents or active loading. Only configured inspectGuidance paths have bounded marker reads.",
       "Launcher targeting is unverified: inspect internal device selection and test with a captured lease before use.",
       "No launcher declarations means integration is unknown; direct wrapped SDK use needs no adapter.",
       "Compare this registry in every participating environment; installation alone does not establish adoption.",
@@ -88,11 +101,11 @@ export function adoptionReport({ scope, configPath, leaseRoot, owner, avdPoolPre
 export function formatAdoption(report) {
   const quoted = value => JSON.stringify(value);
   return [
-    `Scope: ${report.scope}`, `Version: ${report.installation.version}`, `Installation: ${quoted(report.installation.packageRoot)}`,
+    `Scope: ${report.scope}`, `Version: ${report.installation.version}`, `Expected guidance revision: ${report.installation.guidanceRevision}`, `Installation: ${quoted(report.installation.packageRoot)}`,
     `CLI: ${quoted(report.installation.cli)}`, `Node: ${report.installation.node}`, `Caller: ${quoted(report.cwd)}`,
     `Registry: ${quoted(report.registry)}`, `Owner: ${quoted(report.owner)}`, `Android pool prefix: ${quoted(report.avdPoolPrefix)}`,
     `Configuration: ${report.config.status} ${quoted(report.config.path)} (${report.config.source})${report.config.detail ? ` — ${report.config.detail}` : ""}`,
-    ...report.instructions.map(f => `Instruction: ${f.status} ${quoted(f.path)} (${f.source})`),
+    ...report.instructions.map(f => `Instruction: ${f.status} ${quoted(f.path)} (${f.source}); guidance=${f.guidance.status} expected=${f.guidance.expectedRevision} declared=${f.guidance.declaredRevision ?? "unknown"}${f.guidance.reason ? ` (${f.guidance.reason})` : ""}`),
     ...report.launchers.map(f => `Launcher: ${f.platform} ${f.status} ${quoted(f.path)} (configured; targeting unverified)`),
     ...(report.launchers.length ? [] : ["Launchers: none declared (integration unknown)"]),
     ...report.notes,

@@ -9,12 +9,19 @@ guidance alongside these rules; it does not guarantee automatic participation.
 Inspect configured locations with `device-lease adoption-check --scope personal`
 or `pnpm exec device-lease adoption-check --scope project`.
 
+The next release marks each complete rule with a shared guidance revision.
+Preserve that marker when merging a rule and use optional
+[marker inspection](commands.md#inspect-copied-guidance-revisions) to identify
+declared revisions. A matching marker does not prove rule completeness or loading.
+
 ## Personal rule
 
 Save this in your agent client's personal instructions. It uses globally
 installed commands and does not require application repository changes.
 
 ```md
+<!-- agent-mobile-device-lease-guidance: 1 -->
+
 ## Shared mobile devices on this machine
 
 Before any shared Android emulator or iOS simulator interaction, acquire a lease
@@ -82,6 +89,8 @@ Commit this in the application's `AGENTS.md` or equivalent shared instructions
 after pinning the dependency and adapting the project's launcher.
 
 ```md
+<!-- agent-mobile-device-lease-guidance: 1 -->
+
 ## Shared mobile devices
 
 Each independent agent uses its own Git worktree. Acquire before shared device

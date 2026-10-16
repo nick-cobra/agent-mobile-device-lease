@@ -3,6 +3,8 @@ name: mobile-device-lease
 description: Coordinate shared Android emulators and iOS simulators with the globally installed Agent Mobile Device Lease CLI during app installation, device tests, interaction, captures and manual testing.
 ---
 
+<!-- agent-mobile-device-lease-guidance: 1 -->
+
 # Personal mobile device leases
 
 Use the globally installed CLI from the application's worktree. Keep application

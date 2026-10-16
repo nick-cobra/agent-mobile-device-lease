@@ -336,13 +336,16 @@ Declare custom client files explicitly. An empty array intentionally declares no
 locations. Launchers are reported only when declared; direct wrapped SDK use
 needs no adapter, so absent declarations mean integration is unknown.
 
-Each location reports `present`, `missing`, `not-file` or `unreadable`. Contents
-are neither read nor printed; readable file presence does not establish rule
-content, skill invocation or active agent loading. Launcher targeting always
+Each location reports `present`, `missing`, `not-file` or `unreadable`. String
+instruction paths and candidate paths remain presence-only: their contents are
+not read. Explicit guidance-marker inspection is described below. No instruction
+contents are printed; file presence does not establish rule content, skill
+invocation or active agent loading. Launcher targeting always
 remains `unverified`: inspect internal selection and perform a captured-device
 integration test. The check never executes launchers or SDK tools, scans the home
 directory, changes configuration or touches the lease registry. It reads only
-its own package metadata, the selected configuration and file metadata/access.
+its own package metadata, the selected configuration, file metadata/access and
+bounded marker bytes only from explicitly opted-in instruction files.
 Owner resolution may run Git to identify the caller's checkout.
 
 Text uses stderr; `--json` emits structured stdout. Exit 0 means inspection
@@ -356,6 +359,67 @@ the documented paths/platforms are reported.
 Use [doctor](#diagnose-prerequisites-and-capacity) separately for SDK/capacity
 checks, the [personal skill](personal-skill.md) for reusable guidance and the
 [standing rules](agent-instructions.md) to make participation an ongoing rule.
+
+### Inspect copied guidance revisions
+
+Available in the next release; v0.1.5 accepts only string instruction paths.
+The copyable personal/project rules and personal skill carry a shared guidance
+revision marker:
+
+```md
+<!-- agent-mobile-device-lease-guidance: 1 -->
+```
+
+Keep that line when merging the complete rule into an instruction file. The
+revision identifies the shipped guidance contract independently of the CLI
+version. Guidance changes update the expected revision and all three template
+markers together; CLI-only releases leave it unchanged. Formatting or local
+customisations do not prove compliance with the guidance contract.
+
+To inspect a copied rule, opt that path into a bounded marker read:
+
+```json
+{
+  "version": 1,
+  "instructions": [
+    {"path": "AGENTS.md", "inspectGuidance": true},
+    "CLAUDE.md"
+  ]
+}
+```
+
+Use personal paths in the personal configuration for personal adoption. String
+entries and objects with `inspectGuidance: false` stay presence-only; default
+candidates are never read. No configuration or user instruction file is updated
+automatically. A configured marker read is limited to a regular file of at most
+64 KiB; oversized or detected incomplete/changing reads and unreadable files cannot claim a
+matching revision. File text is never printed or executed.
+
+The running installation reports `guidanceRevision`. Each instruction reports
+`guidance.expectedRevision`, `declaredRevision`, `status` and any limited reason:
+
+| Status | Meaning |
+| --- | --- |
+| `matching` | One well-formed marker declares the expected numeric revision |
+| `outdated` | The declared numeric revision is lower than expected |
+| `newer` | The declaration is newer than this installation; compatibility is unverified |
+| `missing` | An opted-in file/marker is absent |
+| `unknown` | Inspection was not enabled, or the marker/file could not be interpreted completely |
+| `ambiguous` | Multiple marker lines occur, including duplicate or conflicting declarations |
+
+Markers use one complete comment line with a non-negative safe integer. A
+malformed declaration is unknown, not a guessed version. Multiple copied rules
+in one file need one current marker for this guidance set; do not stamp it as
+current until the relevant guidance has actually been reviewed and merged.
+
+Revision results are **advisory** and do not change existing exit status: an
+outdated/unversioned readable file can still produce exit 0 for completed
+inspection. Missing/unreadable explicitly configured files remain ordinary
+inspection errors. A matching marker proves only a declaration, not complete
+rule content, customisation correctness, active agent loading or launcher
+targeting. Review and merge stale guidance while preserving other personal or
+project instructions, then refresh the agent session as described in
+[Adoption](adoption.md#personal-your-agents-on-your-mac).
 
 ## Recover the owned virtual device
 
