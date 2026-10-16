@@ -8,7 +8,7 @@ application repository. Both paths use the same device protocol and registry.
 
 ## Personal: your agents on your Mac
 
-1. Install once with `npm install --global github:nick-cobra/agent-mobile-device-lease#v0.1.5`.
+1. Install once with `npm install --global github:nick-cobra/agent-mobile-device-lease#v0.1.6`.
 2. Ensure the global npm bin directory is on the agent process's PATH, not just an interactive terminal's PATH. Restart that process after changing PATH.
 3. Add the [personal standing rule](agent-instructions.md#personal-rule) to your agent client's personal instruction source. The packaged [personal skill template](personal-skill.md) provides reusable task guidance alongside it. Do not replace existing instructions.
 4. Run `device-lease adoption-check --scope personal` to inspect installation, registry, instruction locations and declared launchers. File presence does not prove the agent loaded the rules. Run `device-lease doctor --platform android` or `--platform ios` for SDK/capacity checks. Provide virtual-device capacity if needed.
@@ -31,7 +31,7 @@ behaviour. [Official Codex instruction discovery](https://learn.chatgpt.com/docs
 
 ## Project/team: a shared workflow
 
-1. Add the pinned release as a development dependency with `pnpm add -D github:nick-cobra/agent-mobile-device-lease#v0.1.5` (or npm's `--save-dev`). Commit the manifest and lockfile. For an immutable pin, use the release's full Git commit SHA instead of its tag.
+1. Add the pinned release as a development dependency with `pnpm add -D github:nick-cobra/agent-mobile-device-lease#v0.1.6` (or npm's `--save-dev`). Commit the manifest and lockfile. For an immutable pin, use the release's full Git commit SHA instead of its tag.
 2. Add the [project standing rule](agent-instructions.md#project-rule) to the application's instructions.
 3. Integrate the shared preview/install/test/capture launcher. Keep one captured device and acquisition token throughout the task.
 4. Configure every project and worktree sharing devices to use the same registry and pool prefix. Inspect with `pnpm exec device-lease adoption-check --scope project`; optionally declare custom instruction and launcher paths in the [inspection configuration](commands.md#inspect-adoption). Run `pnpm exec device-lease doctor --platform android` or `--platform ios` for prerequisites/capacity.
@@ -68,7 +68,7 @@ Use persistent `acquire` + `exec` for that workflow. `device-session` is for
 finite unattended work: it releases when its child exits, so a returning
 installer is the wrong session boundary for later human testing.
 
-The next release adds explicit bounded [keep-alive renewal](commands.md#keep-a-manual-session-renewed); verify its process and track its deadline before claiming automatic renewal.
+Version 0.1.6 adds explicit bounded [keep-alive renewal](commands.md#keep-a-manual-session-renewed); verify its process and track its deadline before claiming automatic renewal.
 
 Acquisition alone starts no idle renewal process. `exec` heartbeats only during
 its child. Check `device-lease list --json`, renew before expiry throughout idle

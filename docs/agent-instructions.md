@@ -9,7 +9,7 @@ guidance alongside these rules; it does not guarantee automatic participation.
 Inspect configured locations with `device-lease adoption-check --scope personal`
 or `pnpm exec device-lease adoption-check --scope project`.
 
-The next release marks each complete rule with a shared guidance revision.
+Version 0.1.6 marks each complete rule with a shared guidance revision.
 Preserve that marker when merging a rule and use optional
 [marker inspection](commands.md#inspect-copied-guidance-revisions) to identify
 declared revisions. A matching marker does not prove rule completeness or loading.

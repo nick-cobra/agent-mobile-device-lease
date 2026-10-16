@@ -1,6 +1,6 @@
 {
   "name": "agent-mobile-device-lease",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "type": "module",
   "description": "Shared Android emulator and iOS simulator leases for agent worktrees",
   "engines": {
@@ -11,12 +11,14 @@
     "android:avds": "node scripts/provision-android-avds.mjs",
     "mobile:build": "node scripts/mobile-build.mjs",
     "device:session": "node scripts/device-session.mjs",
+    "device:smoke": "node scripts/device-smoke.mjs",
     "test": "node --test scripts/*.test.mjs"
   },
   "license": "MIT",
   "bin": {
     "device-lease": "scripts/device-lease.mjs",
     "device-session": "scripts/device-session.mjs",
+    "device-lease-smoke": "scripts/device-smoke.mjs",
     "mobile-build-slot": "scripts/mobile-build.mjs",
     "android-device-pool": "scripts/provision-android-avds.mjs"
   },

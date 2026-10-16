@@ -176,3 +176,44 @@ That validation does not prove automatic selection by every agent client.
 No live devices or application builds are used by these new checks. They inspect
 configuration, not agent compliance or launcher targeting. Hosted Node 22/24
 macOS/Linux CI is checked separately before release.
+
+## Version 0.1.6 manual renewal, guidance revisions and smoke harness
+
+All **300 tests passed** locally on Node 22.23.2, macOS, with no failures,
+skips or cancellations. Coverage includes the previous 245 tests, 17 manual
+keep-alive cases, 19 copied-guidance cases, 18 smoke safety/process cases and
+one new offline packaged smoke test. Existing packaged adoption coverage also
+executes bounded renewal and inspects actual copied rules from both installation
+scopes. These tests use disposable registries and stub SDKs.
+
+The keep-alive baseline had eight initial failures for absent behaviour; four
+initial rejection cases already passed. A further RED reproduced metadata being
+written beyond the configured renewal duration. The guidance baseline failed
+15 of 16 initial cases; invalid-configuration rejection already passed. The smoke
+command's first happy-path test failed before implementation. A subsequent RED
+reproduced an interrupted acquisition incorrectly reporting verified cleanup;
+that uncertain outcome now remains unverified and its short lease expires
+naturally. These statements distinguish new regression evidence from already
+passing boundaries.
+
+Independent review also reproduced a recovery-to-sideload transition being
+omitted from Android preservation snapshots. Four focused regressions first
+failed: the transition falsely passed, and stable recovery, sideload and
+multiword permission states were missing from observation counts. Complete
+inventory state capture now detects the transition and preserves those rows.
+An additional RED proves inventory serials that coincide with object prototype
+keys must remain visible too; the snapshot dictionary has no inherited keys.
+
+The smoke tests cover both virtual platforms, occupied and unrelated expired
+records, inherited identity/Git overrides, explicit live-mode refusal of test
+seams, physical/missing targets, partial acquisition, SDK target mismatch,
+redacted permission failures, missing executables, timeout escalation and
+SIGTERM cleanup with an unrelated process surviving. Offline personal/project
+bins run outside this repository and always label their fixtures as stubbed.
+
+Fresh SDK evidence must come from the exact packed candidate, using the
+[installed-package smoke procedure](installed-smoke.md). Record source SHA,
+tarball SHA-256, installation/platform combinations, redacted reports, actual
+SDK versions and snapshot counts in the release evidence. Neither this test
+count nor historical SDK checks establish a new live pass. Hosted matrix checks
+and independent review are required before publication.

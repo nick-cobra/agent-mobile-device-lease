@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.1.6
+
+- Add an opt-in installed-package smoke harness for dedicated Android emulators and iOS simulators, with explicit live/stubbed evidence, contention/renewal/targeting/loss checks, redacted reports and captured-generation cleanup.
 
 - Version the copyable standing rules and personal skill separately from the CLI, and report expected/declared guidance revisions through opt-in bounded adoption checks. Preserve presence-only legacy paths and unverified agent loading.
 

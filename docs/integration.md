@@ -61,7 +61,7 @@ renewer and `exec` renews only while its child runs. Release only when the user
 finishes, requests release or switches devices, after all device commands finish,
 using the captured token. See [manual-session examples](../README.md#manual-testing-and-session-lifetime).
 
-For idle renewal, the next release's explicit
+For idle renewal, the explicit
 [keep-alive command](commands.md#keep-a-manual-session-renewed) can run separately
 from the launcher with the same captured owner/device/token. Verify its started
 record and process liveness, track its finite duration, and stop it before final
@@ -170,7 +170,10 @@ as a coordinated change, or use completely disjoint devices.
 
 ## Prove application integration
 
-Start with installed-package smoke tests from the application's worktree:
+Start with the [opt-in installed-package smoke harness](installed-smoke.md)
+on dedicated idle virtual devices. It uses disposable callers and verifies
+lease fencing and direct SDK targeting without application source. Then check
+these application-specific behaviours from the application's worktree:
 
 - Acquisition identifies the calling application checkout rather than the package directory.
 - A repeat CLI call in another shell resolves the same device.
