@@ -67,6 +67,10 @@ alongside the standing rules. The read-only [adoption check](docs/commands.md#in
 reports the running version, registry, instruction locations and declared launchers.
 It does not prove an agent loaded a rule or that a launcher respects the device pin.
 
+The next release also provides [opt-in copied-guidance revision checks](docs/commands.md#inspect-copied-guidance-revisions).
+Existing string paths remain presence-only; only explicitly opted-in files have
+bounded marker reads. Matching declarations do not prove rule content or loading.
+
 When upgrading, also merge the updated [standing rule](docs/agent-instructions.md)
 into your personal or project instructions. Updating the CLI does not refresh
 saved agent rules; see [existing-chat refresh](docs/adoption.md#personal-your-agents-on-your-mac).

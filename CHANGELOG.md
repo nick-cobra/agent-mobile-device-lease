@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Version the copyable standing rules and personal skill separately from the CLI, and report expected/declared guidance revisions through opt-in bounded adoption checks. Preserve presence-only legacy paths and unverified agent loading.
+
 - Add explicit, bounded `keep-alive` renewal for an existing captured manual-session lease, with text/JSON lifecycle status and cancellation-aware mutex waits. Stopping renewal leaves the lease held until its stored expiry or captured-token release.
 
 ## 0.1.5
