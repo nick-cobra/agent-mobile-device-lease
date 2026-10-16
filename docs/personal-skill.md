@@ -45,7 +45,7 @@ new release. Project/team adoption continues to use a pinned dependency and
 committed shared instructions; this personal template does not require adopting
 that scope.
 
-The next release includes a guidance revision marker in the template. Preserve
+Version 0.1.6 includes a guidance revision marker in the template. Preserve
 it when copying the complete skill, and optionally declare that personal file
 with `inspectGuidance: true` in the [adoption configuration](commands.md#inspect-copied-guidance-revisions).
 The report compares its declared revision with the executing installation;

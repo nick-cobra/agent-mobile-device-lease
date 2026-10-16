@@ -45,7 +45,7 @@ No checkout of this tool repository is required.
 For personal use, install once and then add the [personal agent rule](docs/agent-instructions.md):
 
 ```sh
-npm install --global github:nick-cobra/agent-mobile-device-lease#v0.1.5
+npm install --global github:nick-cobra/agent-mobile-device-lease#v0.1.6
 device-lease doctor --platform android
 device-lease adoption-check --scope personal
 ```
@@ -53,8 +53,8 @@ device-lease adoption-check --scope personal
 For a project/team workflow, install in the application and commit its lockfile:
 
 ```sh
-pnpm add -D github:nick-cobra/agent-mobile-device-lease#v0.1.5
-# Or: npm install --save-dev github:nick-cobra/agent-mobile-device-lease#v0.1.5
+pnpm add -D github:nick-cobra/agent-mobile-device-lease#v0.1.6
+# Or: npm install --save-dev github:nick-cobra/agent-mobile-device-lease#v0.1.6
 pnpm exec device-lease doctor --platform android
 pnpm exec device-lease adoption-check --scope project
 ```
@@ -67,7 +67,7 @@ alongside the standing rules. The read-only [adoption check](docs/commands.md#in
 reports the running version, registry, instruction locations and declared launchers.
 It does not prove an agent loaded a rule or that a launcher respects the device pin.
 
-The next release also provides [opt-in copied-guidance revision checks](docs/commands.md#inspect-copied-guidance-revisions).
+Version 0.1.6 provides [opt-in copied-guidance revision checks](docs/commands.md#inspect-copied-guidance-revisions).
 Existing string paths remain presence-only; only explicitly opted-in files have
 bounded marker reads. Matching declarations do not prove rule content or loading.
 
@@ -98,8 +98,8 @@ heartbeat stops. Renew before the stored expiry during idle periods; never claim
 automatic renewal without a running, verified renewer. If that cannot be ensured,
 report the actual deadline and arrange renewal or finish testing before it.
 
-The next release adds an explicit [bounded keep-alive command](docs/commands.md#keep-a-manual-session-renewed)
-for idle manual sessions. It is not available in v0.1.5. It starts only when
+Version 0.1.6 adds an explicit [bounded keep-alive command](docs/commands.md#keep-a-manual-session-renewed)
+for idle manual sessions. It starts only when
 requested, requires the captured token and leaves the lease held when renewal
 stops. Verify its live process and `started` record before claiming automatic
 renewal, and track its finite deadline across replies.
@@ -240,6 +240,7 @@ registries.
 - [Agent instructions](docs/agent-instructions.md) includes personal and project standing rules.
 - [Personal skill](docs/personal-skill.md) explains the packaged reusable template.
 - [Validation](docs/validation.md) records checks and their limits.
+- [Installed smoke test](docs/installed-smoke.md) checks an explicitly selected dedicated virtual device and defines release evidence.
 
 To contribute, clone the tool repository and run `npm test`. The tests use
 temporary registries, fake capacity and stub SDK commands, so they do not need

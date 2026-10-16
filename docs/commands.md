@@ -49,6 +49,20 @@ boot attempt can take up to 180 seconds, so `--wait-seconds` is not a strict
 overall wall-clock limit. Use `--no-boot` with zero wait for an immediate capacity
 decision. Each registry mutation has a 60-second mutex wait.
 
+## Installed-package smoke test
+
+```sh
+device-lease-smoke --live --platform android --device '<dedicated-emulator-serial>' --json
+device-lease-smoke --live --platform ios --device '<dedicated-simulator-uuid>' --json
+```
+
+Requires explicit mode, platform and already-ready dedicated virtual device.
+Default overall budget is 120 seconds; `--timeout-seconds` permits 1–300.
+`--stubbed` is a developer fixture mode and never claims live SDK validation.
+See [safe preparation, checks, cleanup and release evidence](installed-smoke.md)
+before invoking. It refuses occupied records and unsafe unrelated expiry;
+it neither provisions nor boots devices or releases other tasks' leases.
+
 ## Lease status and idle renewal
 
 `device-lease list` shows each recorded lease's owner, remaining TTL, expiry,
@@ -94,7 +108,7 @@ finishes. See [standing agent rules](agent-instructions.md).
 
 ## Keep a manual session renewed
 
-Available in the next release; v0.1.5 does not include this command.
+Available since v0.1.6.
 
 After `device-lease acquire --platform android --json`, retain its owner, device
 and token. Start the explicit renewer in a terminal that stays open or an
@@ -362,7 +376,7 @@ checks, the [personal skill](personal-skill.md) for reusable guidance and the
 
 ### Inspect copied guidance revisions
 
-Available in the next release; v0.1.5 accepts only string instruction paths.
+Available since v0.1.6; v0.1.5 accepts only string instruction paths.
 The copyable personal/project rules and personal skill carry a shared guidance
 revision marker:
 
