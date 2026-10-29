@@ -9,6 +9,10 @@ agent's session.
 The tool runs locally, uses Node built-ins and has no runtime package dependencies.
 It does not require an account, hosted service or paid tier.
 
+Read why we built it in
+[Sharing mobile simulators between AI coding agents](https://www.cobrahq.app/blog/engineering/agent-mobile-device-lease)
+on CobraHQ's engineering notes.
+
 ## Choose how to adopt it
 
 > Do you want this for your own agents on this machine, or as a shared project workflow?
